@@ -1,0 +1,32 @@
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Bb]uild/
+bld/
+[Bb]in/
+[Oo]bj/
+*.vcxproj.user
+*.suo
+*.user
+*.userosscache
+*.sln.docstats
+
+# Visual Studio
+.vs/
+*.ncb
+*.opendb
+*.opensdf
+*.sdf
+*.cachefile
+*.VC.db
+*.VC.VC.opendb
+
+# SDK (vendored - tracked separately)
+sdk/
+
+# Temp
+temp_jdsp/
+*.zip
+*.7z
