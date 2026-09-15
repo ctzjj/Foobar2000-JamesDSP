@@ -77,7 +77,7 @@
       <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>$(SolutionDir)sdk\foobar2000;$(SolutionDir)sdk;$(SolutionDir)sdk\pfc;$(SolutionDir)\libjamesdsp\jni\jamesdsp;$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp;$(SolutionDir)\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)sdk\foobar2000;$(SolutionDir)sdk;$(SolutionDir)sdk\pfc;$(SolutionDir)\libjamesdsp\jni\jamesdsp;$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp;$(SolutionDir)\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <FloatingPointModel>Fast</FloatingPointModel>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;JAMESDSP_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -100,7 +100,7 @@
       <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>$(SolutionDir)sdk\foobar2000;$(SolutionDir)sdk;$(SolutionDir)sdk\pfc;$(SolutionDir)\libjamesdsp\jni\jamesdsp;$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp;$(SolutionDir)\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)sdk\foobar2000;$(SolutionDir)sdk;$(SolutionDir)sdk\pfc;$(SolutionDir)\libjamesdsp\jni\jamesdsp;$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp;$(SolutionDir)\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <FloatingPointModel>Fast</FloatingPointModel>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;_USRDLL;JAMESDSP_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -125,7 +125,7 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <StringPooling>true</StringPooling>
       <OmitFramePointers>true</OmitFramePointers>
-      <AdditionalIncludeDirectories>$(SolutionDir)sdk\foobar2000;$(SolutionDir)sdk;$(SolutionDir)sdk\pfc;$(SolutionDir)\libjamesdsp\jni\jamesdsp;$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp;$(SolutionDir)\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)sdk\foobar2000;$(SolutionDir)sdk;$(SolutionDir)sdk\pfc;$(SolutionDir)\libjamesdsp\jni\jamesdsp;$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp;$(SolutionDir)\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <FloatingPointModel>Fast</FloatingPointModel>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;_USRDLL;JAMESDSP_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -153,7 +153,7 @@
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <StringPooling>true</StringPooling>
       <OmitFramePointers>true</OmitFramePointers>
-      <AdditionalIncludeDirectories>$(SolutionDir)sdk\foobar2000;$(SolutionDir)sdk;$(SolutionDir)sdk\pfc;$(SolutionDir)\libjamesdsp\jni\jamesdsp;$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp;$(SolutionDir)\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)sdk\foobar2000;$(SolutionDir)sdk;$(SolutionDir)sdk\pfc;$(SolutionDir)\libjamesdsp\jni\jamesdsp;$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp;$(SolutionDir)\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <FloatingPointModel>Fast</FloatingPointModel>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;_USRDLL;JAMESDSP_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpp17</LanguageStandard>

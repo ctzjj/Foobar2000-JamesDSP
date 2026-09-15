@@ -5,7 +5,7 @@
 
 class jdsp_dsp : public dsp_impl_base {
 public:
-    jdsp_dsp();
+    jdsp_dsp(const dsp_preset& p_preset);
     ~jdsp_dsp();
 
     static void g_get_name(pfc::string_base& p_out);
@@ -13,8 +13,14 @@ public:
     virtual void on_endoftrack(abort_callback& p_abort);
     virtual void on_endofplayback(abort_callback& p_abort);
     virtual bool on_chunk(audio_chunk* p_chunk, abort_callback& p_abort);
-    virtual bool have_configpopup() { return true; }
-    virtual void show_config_popup(HWND parent, abort_callback& p_abort);
+
+    virtual void flush();
+    virtual double get_latency();
+    virtual bool need_track_change_mark();
+
+    static bool g_have_config_popup() { return true; }
+    static bool g_get_default_preset(dsp_preset& p_out);
+    static void g_show_config_popup(const dsp_preset& p_data, fb2k::hwnd_t p_parent, dsp_preset_edit_callback& p_callback);
 
     virtual void get_preset(dsp_preset& p_out);
     virtual void set_preset(const dsp_preset& p_in);

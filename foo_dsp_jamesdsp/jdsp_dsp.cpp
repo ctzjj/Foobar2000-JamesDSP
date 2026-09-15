@@ -12,7 +12,9 @@ void jdsp_dsp::g_get_name(pfc::string_base& p_out) {
     p_out = "JamesDSP";
 }
 
-jdsp_dsp::jdsp_dsp() : m_ipc_client(m_host_manager) {}
+jdsp_dsp::jdsp_dsp(const dsp_preset& p_preset) : m_ipc_client(m_host_manager) {
+    // Load settings from preset if available
+}
 
 jdsp_dsp::~jdsp_dsp() {
     if (m_host_started) {
@@ -24,16 +26,22 @@ jdsp_dsp::~jdsp_dsp() {
 bool jdsp_dsp::EnsureHostRunning() {
     if (m_host_manager.IsRunning()) return true;
 
-    pfc::string8 dll_path;
-    component_loader::g_get_full_path(dll_path, "foo_dsp_jamesdsp.dll");
-    pfc::string8 dir = pfc::string_filename(dll_path);
-    pfc::string8 host_path = dir;
-    host_path += "\\jdsp_host.exe";
+    // Get the directory of this DLL
+    HMODULE hMod = NULL;
+    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                       (LPCWSTR)&jdsp_dsp::g_get_guid, &hMod);
 
-    pfc::wchar_t host_path_w[MAX_PATH];
-    pfc::utf8_to_wide(host_path, host_path_w, MAX_PATH);
+    wchar_t dll_path[MAX_PATH];
+    GetModuleFileNameW(hMod, dll_path, MAX_PATH);
 
-    if (!m_host_manager.Start(host_path_w)) return false;
+    // Replace filename with jdsp_host.exe
+    wchar_t* last_slash = wcsrchr(dll_path, L'\\');
+    if (last_slash) {
+        *(last_slash + 1) = L'\0';
+        wcscat_s(dll_path, L"jdsp_host.exe");
+    }
+
+    if (!m_host_manager.Start(dll_path)) return false;
 
     m_host_started = true;
     return true;
@@ -43,9 +51,9 @@ bool jdsp_dsp::on_chunk(audio_chunk* p_chunk, abort_callback&) {
     if (!EnsureHostRunning()) return false;
 
     audio_sample* data = p_chunk->get_data();
-    uint32_t sample_count = p_chunk->get_sample_count();
-    uint32_t channels = p_chunk->get_channels();
-    uint32_t sample_rate = p_chunk->get_sample_rate();
+    uint32_t sample_count = (uint32_t)p_chunk->get_sample_count();
+    uint32_t channels = (uint32_t)p_chunk->get_channels();
+    uint32_t sample_rate = (uint32_t)p_chunk->get_sample_rate();
 
     uint32_t total = sample_count * channels;
     std::vector<float> input(total);
@@ -64,15 +72,40 @@ bool jdsp_dsp::on_chunk(audio_chunk* p_chunk, abort_callback&) {
 void jdsp_dsp::on_endoftrack(abort_callback&) {}
 void jdsp_dsp::on_endofplayback(abort_callback&) {}
 
-void jdsp_dsp::show_config_popup(HWND parent, abort_callback&) {
+void jdsp_dsp::flush() {
+    // Reset any buffered data
+}
+
+double jdsp_dsp::get_latency() {
+    // No buffering, return 0
+    return 0;
+}
+
+bool jdsp_dsp::need_track_change_mark() {
+    return false;
+}
+
+bool jdsp_dsp::g_get_default_preset(dsp_preset& p_out) {
+    dsp_preset_builder builder;
+    builder.finish(g_get_guid(), p_out);
+    return true;
+}
+
+static void RunDSPConfigPopup(const dsp_preset& p_data, HWND p_parent, dsp_preset_edit_callback& p_callback) {
     // TODO: Show configuration dialog
 }
 
-void jdsp_dsp::get_preset(dsp_preset& p_out) {
-    p_out.guid = g_get_guid();
+void jdsp_dsp::g_show_config_popup(const dsp_preset& p_data, fb2k::hwnd_t p_parent, dsp_preset_edit_callback& p_callback) {
+    RunDSPConfigPopup(p_data, p_parent, p_callback);
 }
 
-void jdsp_dsp::set_preset(const dsp_preset& p_in) {}
+void jdsp_dsp::get_preset(dsp_preset& p_out) {
+    p_out.set_owner(g_get_guid());
+}
+
+void jdsp_dsp::set_preset(const dsp_preset& p_in) {
+    // TODO: Load settings from preset
+}
 
 bool jdsp_dsp::is_preset_current(const dsp_preset& p_in) {
     return true;
