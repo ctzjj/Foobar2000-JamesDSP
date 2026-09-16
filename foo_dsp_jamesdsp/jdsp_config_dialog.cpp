@@ -497,6 +497,14 @@ void JdspConfigDialog::OnCommand(HWND hwnd, WPARAM wParam, LPARAM lParam) {
         }
     }
 
+    // Text edits commit on EN_KILLFOCUS. Pushing on the intermediate EN_CHANGE /
+    // EN_UPDATE notifications would clamp the value while the user is still typing.
+    if ((id == IDC_EDIT_EQ_FREQ || id == IDC_EDIT_EQ_GAIN || id == IDC_EDIT_EQ_Q ||
+         id == IDC_EDIT_CONV_IR || id == IDC_EDIT_DDC_PROFILE || id == IDC_EDIT_SCRIPT) &&
+        (code == EN_CHANGE || code == EN_UPDATE)) {
+        return;
+    }
+
     PushLive(false);
 }
 
@@ -705,6 +713,11 @@ void JdspConfigDialog::SyncFromControls(HWND hwnd) {
 
 void JdspConfigDialog::PushLive(bool full) {
     if (!m_hwnd) return;
+    // SyncFromControls writes clamped values back into the edit controls, which
+    // notifies us again. Without this guard that feedback loop recurses until the
+    // stack overflows.
+    if (m_in_live_push) return;
+    m_in_live_push = true;
 
     SyncFromControls(m_hwnd);
     std::string blob = SerializeSettings();
@@ -720,6 +733,8 @@ void JdspConfigDialog::PushLive(bool full) {
     if (!payload.empty()) {
         JdspSendToActive(payload);
     }
+
+    m_in_live_push = false;
 }
 
 std::string JdspConfigDialog::SerializeSettings() const {
@@ -922,6 +937,17 @@ void JdspConfigDialog::ApplyModulesTab(HWND hwnd) {
 }
 
 // ===== EQ Tab =====
+// SetWindowTextW always notifies the parent, even when the text is identical, so
+// only write when something actually changes.
+static void SetTextIfChanged(HWND w, const wchar_t* text) {
+    if (!w) return;
+    wchar_t cur[512];
+    cur[0] = L'\0';
+    GetWindowTextW(w, cur, 512);
+    if (wcscmp(cur, text) == 0) return;
+    SetWindowTextW(w, text);
+}
+
 void JdspConfigDialog::UpdateEqBandLabel(HWND tab, int band) {
     if (!tab || band < 0 || band >= 10) return;
     wchar_t buf[32];
@@ -981,8 +1007,8 @@ void JdspConfigDialog::InitEqTab(HWND hwnd) {
     wchar_t buf[32];
     HWND freq_e = GetDlgItem(tab, IDC_EDIT_EQ_FREQ);
     HWND q_e = GetDlgItem(tab, IDC_EDIT_EQ_Q);
-    if (freq_e) { swprintf_s(buf, L"%.0f", b.frequency); SetWindowTextW(freq_e, buf); }
-    if (q_e) { swprintf_s(buf, L"%.2f", b.q); SetWindowTextW(q_e, buf); }
+    if (freq_e) { swprintf_s(buf, L"%.0f", b.frequency); SetTextIfChanged(freq_e, buf); }
+    if (q_e) { swprintf_s(buf, L"%.2f", b.q); SetTextIfChanged(q_e, buf); }
 }
 
 void JdspConfigDialog::ApplyEqTab(HWND hwnd) {
@@ -1005,7 +1031,7 @@ void JdspConfigDialog::ApplyEqTab(HWND hwnd) {
         if (f > 20000.0f) f = 20000.0f;
         m_eq_bands[sel].frequency = f;
         swprintf_s(buf, L"%.0f", f);
-        SetWindowTextW(freq_e, buf);
+        SetTextIfChanged(freq_e, buf);
     }
     HWND q_e = GetDlgItem(tab, IDC_EDIT_EQ_Q);
     if (q_e) {
@@ -1015,7 +1041,7 @@ void JdspConfigDialog::ApplyEqTab(HWND hwnd) {
         if (q > 10.0f) q = 10.0f;
         m_eq_bands[sel].q = q;
         swprintf_s(buf, L"%.2f", q);
-        SetWindowTextW(q_e, buf);
+        SetTextIfChanged(q_e, buf);
     }
     m_eq_widget.SetBands(m_eq_bands);
     UpdateEqBandLabel(tab, sel);

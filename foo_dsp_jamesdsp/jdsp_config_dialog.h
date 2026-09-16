@@ -100,4 +100,5 @@ private:
     std::string m_settings_blob;
     std::string m_live_blob;   // last blob successfully derived from the controls
     std::string m_orig_blob;   // blob captured when the dialog opened (cancel revert)
+    bool m_in_live_push = false;  // guards the live-push feedback loop
 };
