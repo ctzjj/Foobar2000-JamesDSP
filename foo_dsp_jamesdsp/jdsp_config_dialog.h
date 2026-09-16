@@ -36,6 +36,7 @@ private:
     void OnNotify(HWND hwnd, WPARAM wParam, LPARAM lParam);
     void OnApply(HWND hwnd);
     void SyncFromControls(HWND hwnd);
+    void PushLive(bool full = false);
     void OnHScroll(HWND hwnd, WPARAM wParam, LPARAM lParam);
     void OnLanguageChange(HWND hwnd);
     void SwitchLanguage(int lang_id);
@@ -97,4 +98,6 @@ private:
     bool m_script_enabled = false;
     bool m_conv_enabled = false;
     std::string m_settings_blob;
+    std::string m_live_blob;   // last blob successfully derived from the controls
+    std::string m_orig_blob;   // blob captured when the dialog opened (cancel revert)
 };

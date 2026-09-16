@@ -2,7 +2,9 @@
 #include "jdsp_config_dialog.h"
 #include "jdsp_config_serializer.h"
 #include "resource.h"
+#include "jdsp_live_link.h"
 #include <cstdio>
+#include <map>
 
 extern void EnsureEqClassRegistered();
 HMODULE GetMyModule();
@@ -202,10 +204,19 @@ JdspConfigDialog::JdspConfigDialog(JdspIpcClient& ipc) : m_ipc(ipc) {
 
 bool JdspConfigDialog::Show(HWND parent) {
     CfgLog("Show: begin");
+    m_live_blob = SerializeSettings();
+    m_orig_blob = m_live_blob;
+
     INT_PTR r = DialogBoxParam(GetMyModule(),
                                MAKEINTRESOURCE(IDD_JDSP_CONFIG),
                                parent, DialogProc, reinterpret_cast<LPARAM>(this));
     CfgLog("Show: dialog closed");
+
+    if (r != IDOK) {
+        CfgLog("Show: cancelled -> reverting live settings");
+        m_live_blob = m_orig_blob;
+        JdspSendToActive(m_orig_blob);
+    }
     return r == IDOK;
 }
 
@@ -369,13 +380,17 @@ void JdspConfigDialog::OnCommand(HWND hwnd, WPARAM wParam, LPARAM lParam) {
     if (id == IDOK) {
         OnApply(hwnd);
         EndDialog(hwnd, IDOK);
-    } else if (id == IDCANCEL) {
+        return;
+    }
+    if (id == IDCANCEL) {
         EndDialog(hwnd, IDCANCEL);
-    } else if (id == IDC_COMBO_LANGUAGE && code == CBN_SELCHANGE) {
+        return;
+    }
+    if (id == IDC_COMBO_LANGUAGE && code == CBN_SELCHANGE) {
         OnLanguageChange(hwnd);
     } else if (id == IDC_COMBO_EQ_BAND && code == CBN_SELCHANGE) {
         HWND tab = m_tab_dialogs[1];
-        if (!tab) return;
+        if (!tab) { PushLive(false); return; }
         // Save current band edits first
         ApplyEqTab(hwnd);
         // Switch to new band
@@ -481,6 +496,8 @@ void JdspConfigDialog::OnCommand(HWND hwnd, WPARAM wParam, LPARAM lParam) {
             m_eq_widget.SetBands(m_eq_bands);
         }
     }
+
+    PushLive(false);
 }
 
 void JdspConfigDialog::OnNotify(HWND hwnd, WPARAM wParam, LPARAM lParam) {
@@ -510,6 +527,8 @@ void JdspConfigDialog::OnNotify(HWND hwnd, WPARAM wParam, LPARAM lParam) {
             }
         }
     }
+
+    PushLive(false);
 }
 
 void JdspConfigDialog::UpdateSliderLabel(HWND tab, int slider_id, int label_id, const wchar_t* fmt, float val) {
@@ -563,6 +582,8 @@ void JdspConfigDialog::OnHScroll(HWND hwnd, WPARAM wParam, LPARAM lParam) {
         bands[band].gain = g;
         m_eq_widget.SetBands(bands);
     }
+
+    PushLive(false);
 }
 
 // ===== Settings (de)serialization =====
@@ -600,6 +621,55 @@ static std::string UnescapeValue(const std::string& v) {
     return o;
 }
 
+static void SplitBlob(const std::string& blob, std::map<std::string, std::string>& out) {
+    size_t pos = 0;
+    while (pos < blob.size()) {
+        size_t eol = blob.find('\n', pos);
+        if (eol == std::string::npos) eol = blob.size();
+        std::string line = blob.substr(pos, eol - pos);
+        pos = eol + 1;
+        if (line.empty()) continue;
+        size_t eq = line.find('=');
+        if (eq == std::string::npos) continue;
+        out[line.substr(0, eq)] = line.substr(eq + 1);
+    }
+}
+
+// Only the keys whose value changed, plus "key=" for keys that disappeared.
+// Sending the whole blob on every slider tick would make the host recompile the
+// EEL2 script (modules.eel2 / script.text) thousands of times per drag.
+static std::string DiffBlobs(const std::string& old_blob, const std::string& new_blob) {
+    std::map<std::string, std::string> old_kv, new_kv;
+    SplitBlob(old_blob, old_kv);
+    SplitBlob(new_blob, new_kv);
+
+    std::string out;
+    size_t pos = 0;
+    while (pos < new_blob.size()) {
+        size_t eol = new_blob.find('\n', pos);
+        if (eol == std::string::npos) eol = new_blob.size();
+        std::string line = new_blob.substr(pos, eol - pos);
+        pos = eol + 1;
+        if (line.empty()) continue;
+        size_t eq = line.find('=');
+        if (eq == std::string::npos) continue;
+        std::map<std::string, std::string>::const_iterator it = old_kv.find(line.substr(0, eq));
+        if (it == old_kv.end() || it->second != line.substr(eq + 1)) {
+            out += line;
+            out += '\n';
+        }
+    }
+
+    for (std::map<std::string, std::string>::const_iterator it = old_kv.begin();
+         it != old_kv.end(); ++it) {
+        if (new_kv.find(it->first) == new_kv.end()) {
+            out += it->first;
+            out += "=\n";
+        }
+    }
+    return out;
+}
+
 void JdspConfigDialog::SyncFromControls(HWND hwnd) {
     ApplyModulesTab(hwnd);
     ApplyEqTab(hwnd);
@@ -630,6 +700,25 @@ void JdspConfigDialog::SyncFromControls(HWND hwnd) {
     if (tab) {
         HWND e = GetDlgItem(tab, IDC_EDIT_DDC_PROFILE);
         if (e) GetWindowTextW(e, m_ddc_profile, MAX_PATH);
+    }
+}
+
+void JdspConfigDialog::PushLive(bool full) {
+    if (!m_hwnd) return;
+
+    SyncFromControls(m_hwnd);
+    std::string blob = SerializeSettings();
+
+    std::string payload;
+    if (full) {
+        payload = blob;
+    } else {
+        payload = DiffBlobs(m_live_blob, blob);
+    }
+    m_live_blob = blob;
+
+    if (!payload.empty()) {
+        JdspSendToActive(payload);
     }
 }
 
