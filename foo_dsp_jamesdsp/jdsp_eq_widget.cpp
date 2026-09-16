@@ -164,33 +164,59 @@ void JdspEqWidget::DrawGrid(HDC hdc, const RECT& rc) {
 void JdspEqWidget::DrawCurve(HDC hdc, const RECT& rc) {
     if (rc.right <= rc.left || rc.bottom <= rc.top) return;
 
-    // The library builds its response by interpolating the 15 axis points, so the
-    // drawn curve interpolates the same points instead of summing independent bells.
-    float logFreq[JDSP_EQ_BANDS];
-    for (int i = 0; i < JDSP_EQ_BANDS; i++) logFreq[i] = log10f(m_bands[i].frequency);
+    // The library interpolates through its 15 axis points, so the drawn curve goes
+    // through the same points. A monotone cubic (Fritsch-Carlson) interpolation is
+    // used in log-frequency: it is smooth but never overshoots, so a single band
+    // moved up produces a smooth local bump instead of a sharp corner.
+    const int n = JDSP_EQ_BANDS;
+    double x[n], y[n];
+    for (int i = 0; i < n; i++) {
+        x[i] = log10((double)m_bands[i].frequency);
+        y[i] = m_bands[i].enabled ? (double)m_bands[i].gain : 0.0;
+    }
+
+    double h[n - 1], delta[n - 1], m[n];
+    for (int i = 0; i < n - 1; i++) {
+        h[i] = x[i + 1] - x[i];
+        delta[i] = (h[i] > 0.0) ? (y[i + 1] - y[i]) / h[i] : 0.0;
+    }
+    m[0] = delta[0];
+    m[n - 1] = delta[n - 2];
+    for (int i = 1; i < n - 1; i++) {
+        if (delta[i - 1] * delta[i] <= 0.0) {
+            m[i] = 0.0;
+        } else {
+            double w1 = 2.0 * h[i] + h[i - 1];
+            double w2 = h[i] + 2.0 * h[i - 1];
+            m[i] = (w1 + w2) / (w1 / delta[i - 1] + w2 / delta[i]);
+        }
+    }
 
     HPEN curvePen = CreatePen(PS_SOLID, 2, RGB(0, 120, 215));
     HPEN oldPen = (HPEN)SelectObject(hdc, curvePen);
 
     bool first = true;
     for (int px = rc.left; px <= rc.right; px++) {
-        float t = (float)(px - rc.left) / (float)(rc.right - rc.left);
-        float logF = log10f(20.0f) + t * (log10f(20000.0f) - log10f(20.0f));
+        double t = (double)(px - rc.left) / (double)(rc.right - rc.left);
+        double logF = log10(20.0) + t * (log10(20000.0) - log10(20.0));
 
-        float gain;
-        if (logF <= logFreq[0]) {
-            gain = m_bands[0].enabled ? m_bands[0].gain : 0.0f;
-        } else if (logF >= logFreq[JDSP_EQ_BANDS - 1]) {
-            gain = m_bands[JDSP_EQ_BANDS - 1].enabled ? m_bands[JDSP_EQ_BANDS - 1].gain : 0.0f;
+        double gain;
+        if (logF <= x[0]) {
+            gain = y[0];
+        } else if (logF >= x[n - 1]) {
+            gain = y[n - 1];
         } else {
-            int hi = 1;
-            while (hi < JDSP_EQ_BANDS - 1 && logFreq[hi] < logF) hi++;
-            int lo = hi - 1;
-            float span = logFreq[hi] - logFreq[lo];
-            float u = (span > 0.0f) ? (logF - logFreq[lo]) / span : 0.0f;
-            float g0 = m_bands[lo].enabled ? m_bands[lo].gain : 0.0f;
-            float g1 = m_bands[hi].enabled ? m_bands[hi].gain : 0.0f;
-            gain = g0 + (g1 - g0) * u;
+            int seg = 0;
+            while (seg < n - 2 && x[seg + 1] < logF) seg++;
+            double hh = h[seg];
+            double u = (hh > 0.0) ? (logF - x[seg]) / hh : 0.0;
+            double u2 = u * u, u3 = u2 * u;
+            double h00 = 2.0 * u3 - 3.0 * u2 + 1.0;
+            double h10 = u3 - 2.0 * u2 + u;
+            double h01 = -2.0 * u3 + 3.0 * u2;
+            double h11 = u3 - u2;
+            gain = h00 * y[seg] + h10 * hh * m[seg] +
+                   h01 * y[seg + 1] + h11 * hh * m[seg + 1];
         }
         if (gain > JDSP_EQ_GAIN_MAX) gain = JDSP_EQ_GAIN_MAX;
         if (gain < -JDSP_EQ_GAIN_MAX) gain = -JDSP_EQ_GAIN_MAX;

@@ -68,6 +68,9 @@ private:
 
     void InitModulesTab(HWND hwnd);
     void ApplyModulesTab(HWND hwnd);
+    // Mirrors m_modules into every module checkbox: the Modules tab plus the
+    // per-tab "Enable" aliases, so the two can never disagree.
+    void SyncModuleCheckboxes();
     void InitEqTab(HWND hwnd);
     void ApplyEqTab(HWND hwnd);
     void InitDynamicsTab(HWND hwnd);

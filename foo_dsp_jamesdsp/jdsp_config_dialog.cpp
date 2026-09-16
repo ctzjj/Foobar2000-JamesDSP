@@ -163,14 +163,14 @@ static const UiLabelDef kUiLabels[] = {
     { IDL_FX_REVERB_GRP,     L"Reverb",         L"\x6df7\x54cd" },
     { IDC_CHK_REVERB_EFFECT, L"Enable",         L"\x542f\x7528" },
     { IDL_FX_REVERB_PRESET,  L"Preset:",        L"\x9884\x8bbe:" },
-    { IDL_FX_REVERB_WET,     L"Wet (dB):",      L"\x6e7f\x58f0 (dB):" },
-    { IDL_FX_REVERB_DRY,     L"Dry (dB):",      L"\x5e72\x58f0 (dB):" },
-    { IDL_FX_REVERB_WIDTH,   L"Width (%):",     L"\x5bbd\x5ea6 (%):" },
-    { IDL_FX_REVERB_RT60,    L"Room size (s):", L"\x6df7\x54cd\x65f6\x95f4 (\x79d2):" },
-    { IDL_FX_REVERB_DAMP,    L"Damping (Hz):",  L"\x963b\x5c3c (Hz):" },
-    { IDL_FX_REVERB_BASS,    L"Bass boost (%):", L"\x4f4e\x97f3\x63d0\x5347 (%):" },
-    { IDL_FX_REVERB_PREDELAY, L"Predelay (ms):", L"\x9884\x5ef6\x65f6 (ms):" },
-    { IDL_FX_REVERB_ER,      L"Early refl. (%):", L"\x65e9\x671f\x53cd\x5c04 (%):" },
+    { IDL_FX_REVERB_WET,     L"Wet (dB)",       L"\x6e7f\x58f0 (dB)" },
+    { IDL_FX_REVERB_DRY,     L"Dry (dB)",       L"\x5e72\x58f0 (dB)" },
+    { IDL_FX_REVERB_WIDTH,   L"Width %",        L"\x5bbd\x5ea6 %" },
+    { IDL_FX_REVERB_RT60,    L"Room (s)",       L"\x6df7\x54cd\x65f6\x95f4 (\x79d2)" },
+    { IDL_FX_REVERB_DAMP,    L"Damping",        L"\x963b\x5c3c" },
+    { IDL_FX_REVERB_BASS,    L"Bass %",         L"\x4f4e\x97f3 %" },
+    { IDL_FX_REVERB_PREDELAY, L"Predelay",      L"\x9884\x5ef6\x65f6" },
+    { IDL_FX_REVERB_ER,      L"Early refl.",    L"\x65e9\x671f\x53cd\x5c04" },
     { IDL_FX_BS2B_GRP,       L"BS2B Crossfeed", L"BS2B \x8de8\x9988" },
     { IDC_CHK_BS2B_EFFECT,   L"Enable",         L"\x542f\x7528" },
     { IDL_FX_BS2B_MODE,      L"Mode:",          L"\x6a21\x5f0f:" },
@@ -216,8 +216,8 @@ void JdspConfigDialog::ApplyLanguage() {
     if (m_tab_dialogs[4]) SetDlgItemTextW(m_tab_dialogs[4], IDL_CV_HINT, hint);
     if (m_tab_dialogs[5]) SetDlgItemTextW(m_tab_dialogs[5], IDL_SP_FORMAT, fmt_hint);
     const wchar_t* rev_hint = (m_current_lang == 1)
-        ? L"\x9009\x62e9\x9884\x8bbe\x4f1a\x91cd\x7f6e\x4e0b\x65b9\x53c2\x6570"
-        : L"Choosing a preset resets the sliders below.";
+        ? L"\x9009\x9884\x8bbe\x4f1a\x91cd\x7f6e\x4e0b\x65b9\x53c2\x6570"
+        : L"Preset resets the sliders.";
     if (m_tab_dialogs[3]) SetDlgItemTextW(m_tab_dialogs[3], IDL_FX_REVERB_HINT, rev_hint);
 }
 
@@ -596,6 +596,12 @@ void JdspConfigDialog::OnCommand(HWND hwnd, WPARAM wParam, LPARAM lParam) {
             }
         }
     }
+
+    // The Modules tab and the per-tab "Enable" checkboxes are two views of the same
+    // flags. Re-read the Modules tab, then mirror the result back into every
+    // checkbox so switching tabs can never show a stale state.
+    ApplyModulesTab(m_hwnd);
+    SyncModuleCheckboxes();
 
     // Text edits commit on EN_KILLFOCUS. Pushing on the intermediate EN_CHANGE /
     // EN_UPDATE notifications would clamp the value while the user is still typing.
@@ -1011,6 +1017,28 @@ void JdspConfigDialog::InitModulesTab(HWND hwnd) {
     for (int i = 0; i < kDlgModCount; i++) {
         HWND chk = GetDlgItem(tab, kModuleCheckboxes[i]);
         if (chk) Button_SetCheck(chk, m_modules[i] ? BST_CHECKED : BST_UNCHECKED);
+    }
+}
+
+void JdspConfigDialog::SyncModuleCheckboxes() {
+    HWND mods = m_tab_dialogs[0];
+    if (mods) {
+        for (int i = 0; i < kDlgModCount; i++) {
+            HWND chk = GetDlgItem(mods, kModuleCheckboxes[i]);
+            if (chk) Button_SetCheck(chk, m_modules[i] ? BST_CHECKED : BST_UNCHECKED);
+        }
+    }
+    // The alias checkboxes live on their own tab pages, so search each page.
+    for (int t = 0; t < JDSP_TAB_COUNT; t++) {
+        HWND page = m_tab_dialogs[t];
+        if (!page) continue;
+        for (int i = 0; i < _countof(kModAliases); i++) {
+            HWND chk = GetDlgItem(page, kModAliases[i].alias_id);
+            if (chk) {
+                Button_SetCheck(chk, m_modules[kModAliases[i].mod_index]
+                                     ? BST_CHECKED : BST_UNCHECKED);
+            }
+        }
     }
 }
 
