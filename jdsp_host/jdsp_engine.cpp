@@ -1,4 +1,6 @@
 #include "jdsp_engine.h"
+#include "wav_loader.h"
+#include <windows.h>
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
@@ -12,6 +14,29 @@ static inline JamesDSPLib* JDSP(void* p) { return reinterpret_cast<JamesDSPLib*>
 
 static double parse_float(const char* s) {
     return s ? atof(s) : 0.0;
+}
+
+static std::wstring Utf8ToWide(const std::string& s) {
+    if (s.empty()) return std::wstring();
+    int n = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), nullptr, 0);
+    if (n <= 0) return std::wstring();
+    std::wstring w((size_t)n, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), &w[0], n);
+    return w;
+}
+
+// Reads a small text file (DDC profile / EEL2 script). Returns an empty string on
+// any error.
+static std::string ReadTextFile(const std::wstring& path) {
+    std::string out;
+    if (path.empty()) return out;
+    FILE* f = nullptr;
+    if (_wfopen_s(&f, path.c_str(), L"rb") != 0 || !f) return out;
+    char buf[4096];
+    size_t got;
+    while ((got = fread(buf, 1, sizeof(buf), f)) > 0) out.append(buf, got);
+    fclose(f);
+    return out;
 }
 
 JdspEngine::JdspEngine() {}
@@ -74,6 +99,95 @@ double JdspEngine::TubeDriveDb() const {
     return -3.0 + (pct / 100.0) * 15.0;
 }
 
+bool JdspEngine::LoadImpulseResponse(const std::wstring& path) {
+    if (!m_jdsp) return false;
+    if (path == m_ir_path_last) return true;
+
+    JamesDSPLib* jdsp = JDSP(m_jdsp);
+
+    if (path.empty()) {
+        Convolver1DLoadImpulseResponse(jdsp, nullptr, 0, 0, 1);
+        Convolver1DDisable(jdsp);
+        m_ir_path_last.clear();
+        return true;
+    }
+
+    std::vector<float> samples;
+    uint32_t channels = 0;
+    uint32_t sample_rate = 0;
+    if (!LoadWavInterleaved(path, samples, channels, sample_rate)) {
+        printf("LoadImpulseResponse: cannot read impulse response\n");
+        return false;
+    }
+    (void)sample_rate;
+
+    size_t frames = samples.size() / channels;
+    int r = Convolver1DLoadImpulseResponse(jdsp, samples.data(), channels, frames, 1);
+    if (!r) {
+        printf("LoadImpulseResponse: Convolver1DLoadImpulseResponse failed\n");
+        return false;
+    }
+    // Loading does not turn the convolver on; only the module flag does that.
+    if (m_module_enabled[5]) Convolver1DEnable(jdsp);
+    m_ir_path_last = path;
+    printf("LoadImpulseResponse: ok (%u ch, %u frames)\n",
+           (unsigned)channels, (unsigned)frames);
+    return true;
+}
+
+bool JdspEngine::LoadDdcProfile(const std::wstring& path) {
+    if (!m_jdsp) return false;
+    if (path == m_ddc_path_last) return true;
+
+    JamesDSPLib* jdsp = JDSP(m_jdsp);
+
+    if (path.empty()) {
+        m_ddc_path_last.clear();
+        return true;
+    }
+
+    std::string text = ReadTextFile(path);
+    if (text.empty()) {
+        printf("LoadDdcProfile: cannot read profile\n");
+        return false;
+    }
+    text.push_back('\0');  // DDCStringParser takes a C string
+
+    int r = DDCStringParser(jdsp, &text[0]);
+    if (r < 0) {
+        printf("LoadDdcProfile: DDCStringParser failed\n");
+        return false;
+    }
+    if (m_module_enabled[2]) DDCEnable(jdsp, 1);
+    m_ddc_path_last = path;
+    printf("LoadDdcProfile: ok\n");
+    return true;
+}
+
+bool JdspEngine::LoadEelScript(const std::string& text) {
+    if (!m_jdsp) return false;
+    if (text == m_script_last) return true;
+
+    JamesDSPLib* jdsp = JDSP(m_jdsp);
+    m_script_last = text;
+
+    if (text.empty()) {
+        LiveProgDisable(jdsp);
+        return true;
+    }
+
+    std::string code = text;
+    code.push_back('\0');
+    int err = LiveProgStringParser(jdsp, &code[0]);
+    if (err != 1) {
+        printf("LoadEelScript: %s\n", checkErrorCode(err));
+        return false;
+    }
+    if (m_module_enabled[12]) LiveProgEnable(jdsp);
+    printf("LoadEelScript: ok\n");
+    return true;
+}
+
 void JdspEngine::Shutdown() {
     if (!m_jdsp) return;
 
@@ -125,7 +239,10 @@ void JdspEngine::SetParam(const std::string& key, const std::string& value) {
     else if (key == "modules.ddc") { m_module_enabled[2] = (atoi(val) != 0); DDCEnable(jdsp, m_module_enabled[2]); }
     else if (key == "modules.limiter") { m_module_enabled[3] = (atoi(val) != 0); UpdateLimiter(); }
     else if (key == "modules.compressor") { m_module_enabled[4] = (atoi(val) != 0); CompressorEnable(jdsp, m_module_enabled[4]); }
-    else if (key == "modules.convolver") { m_module_enabled[5] = (atoi(val) != 0); }
+    else if (key == "modules.convolver") {
+        m_module_enabled[5] = (atoi(val) != 0);
+        if (m_module_enabled[5]) Convolver1DEnable(jdsp); else Convolver1DDisable(jdsp);
+    }
     else if (key == "modules.reverb") { m_module_enabled[6] = (atoi(val) != 0); if (m_module_enabled[6]) ReverbEnable(jdsp); else ReverbDisable(jdsp); }
     else if (key == "modules.bassboost") { m_module_enabled[7] = (atoi(val) != 0); if (m_module_enabled[7]) BassBoostEnable(jdsp); else BassBoostDisable(jdsp); }
     else if (key == "modules.stereo") { m_module_enabled[8] = (atoi(val) != 0); if (m_module_enabled[8]) StereoEnhancementEnable(jdsp); else StereoEnhancementDisable(jdsp); }
@@ -151,6 +268,9 @@ void JdspEngine::SetParam(const std::string& key, const std::string& value) {
     else if (key == "bs2b.feed") { m_bs2b_feed = (float)dv; }
     else if (key == "bs2b.freq") { m_bs2b_freq = (float)dv; }
     else if (key == "convolver.gain") { m_conv_gain = (float)dv; JamesDSPSetPostGain(jdsp, m_conv_gain); }
+    else if (key == "convolver.path") { LoadImpulseResponse(Utf8ToWide(value)); }
+    else if (key == "ddc.profile") { LoadDdcProfile(Utf8ToWide(value)); }
+    else if (key == "script.text") { LoadEelScript(value); }
 
     else if (key.find("eq.band") == 0) {
         int band = atoi(key.c_str() + 7);

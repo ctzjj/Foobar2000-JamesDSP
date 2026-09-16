@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <string>
+#include <vector>
 
 class JdspEngine {
 public:
@@ -17,6 +18,9 @@ private:
     void ApplyAllParams();
     void UpdateLimiter();
     double TubeDriveDb() const;
+    bool LoadImpulseResponse(const std::wstring& path);
+    bool LoadDdcProfile(const std::wstring& path);
+    bool LoadEelScript(const std::string& text);
     void* m_jdsp = nullptr;
     bool m_initialized = false;
     uint32_t m_sample_rate = 44100;
@@ -40,6 +44,10 @@ private:
     float m_bs2b_feed = 70.0f;
     float m_bs2b_freq = 650.0f;
     float m_conv_gain = 0.0f;
+
+    std::wstring m_ir_path_last;
+    std::wstring m_ddc_path_last;
+    std::string m_script_last;
 
     bool m_module_enabled[13] = {};
 };

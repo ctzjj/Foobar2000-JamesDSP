@@ -1,6 +1,7 @@
 #include "jdsp_ipc_server.h"
 #include <cstdio>
 #include <cstring>
+#include <string>
 #include <chrono>
 
 #ifdef _WIN32
@@ -165,6 +166,23 @@ bool JdspIpcServer::HandleAudioData(const std::vector<uint8_t>& payload, std::ve
     return true;
 }
 
+// Mirror of JdspConfigDialog's EscapeValue: the blob on the wire stores every
+// backslash as "\\" and every newline as "\n".
+static std::string UnescapeValue(const std::string& v) {
+    std::string o;
+    o.reserve(v.size());
+    for (size_t i = 0; i < v.size(); i++) {
+        if (v[i] == '\\' && i + 1 < v.size()) {
+            char n = v[++i];
+            if (n == 'n') o += '\n';
+            else o += n;
+        } else {
+            o += v[i];
+        }
+    }
+    return o;
+}
+
 bool JdspIpcServer::HandleSetParam(const std::vector<uint8_t>& payload) {
     std::string blob(payload.begin(), payload.end());
     // Payload is one or more "key=value" entries separated by newlines.
@@ -177,7 +195,7 @@ bool JdspIpcServer::HandleSetParam(const std::vector<uint8_t>& payload) {
         if (line.empty()) continue;
         size_t eq = line.find('=');
         if (eq == std::string::npos) continue;
-        m_engine.SetParam(line.substr(0, eq), line.substr(eq + 1));
+        m_engine.SetParam(line.substr(0, eq), UnescapeValue(line.substr(eq + 1)));
     }
     return true;
 }
