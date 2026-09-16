@@ -82,7 +82,8 @@
       <AdditionalDependencies>winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy "$(TargetPath)" "$(SolutionDir)components\"</Command>
+      <Command>if not exist "$(SolutionDir)components" mkdir "$(SolutionDir)components"
+copy /Y "$(TargetPath)" "$(SolutionDir)components\"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -106,7 +107,8 @@
       <AdditionalDependencies>winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy "$(TargetPath)" "$(SolutionDir)components\"</Command>
+      <Command>if not exist "$(SolutionDir)components" mkdir "$(SolutionDir)components"
+copy /Y "$(TargetPath)" "$(SolutionDir)components\"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -128,7 +130,8 @@
       <AdditionalDependencies>winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy "$(TargetPath)" "$(SolutionDir)components\"</Command>
+      <Command>if not exist "$(SolutionDir)components" mkdir "$(SolutionDir)components"
+copy /Y "$(TargetPath)" "$(SolutionDir)components\"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -150,7 +153,8 @@
       <AdditionalDependencies>winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>copy "$(TargetPath)" "$(SolutionDir)components\"</Command>
+      <Command>if not exist "$(SolutionDir)components" mkdir "$(SolutionDir)components"
+copy /Y "$(TargetPath)" "$(SolutionDir)components\"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
