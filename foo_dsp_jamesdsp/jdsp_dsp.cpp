@@ -163,13 +163,18 @@ static void RunDSPConfigPopup(const dsp_preset& p_data, HWND p_parent, dsp_prese
     JdspIpcClient ipc(host_mgr);
     JdspConfigDialog dlg(ipc);
 
+    std::string orig;
     if (p_data.get_data() && p_data.get_data_size() > 0) {
-        dlg.DeserializeSettings(std::string(static_cast<const char*>(p_data.get_data()),
-                                            (size_t)p_data.get_data_size()));
+        orig.assign(static_cast<const char*>(p_data.get_data()), (size_t)p_data.get_data_size());
+        dlg.DeserializeSettings(orig);
     }
 
     if (dlg.Show(p_parent)) {
         std::string blob = dlg.SerializeSettings();
+        if (blob == orig) {
+            CfgLog("RunDSPConfigPopup: settings unchanged, not notifying foobar2000");
+            return;
+        }
         dsp_preset_impl new_preset;
         new_preset.set_owner(g_jdsp_guid);
         new_preset.set_data(blob.data(), blob.size());

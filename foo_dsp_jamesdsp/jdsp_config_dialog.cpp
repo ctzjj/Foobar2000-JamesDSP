@@ -846,69 +846,12 @@ void JdspConfigDialog::DeserializeSettings(const std::string& blob) {
 }
 
 void JdspConfigDialog::OnApply(HWND hwnd) {
-    SyncFromControls(hwnd);
+    (void)hwnd;
+    SyncFromControls(m_hwnd);
     m_settings_blob = SerializeSettings();
-
-    m_ipc.SendSetParam("modules.analog", m_modules[0] ? "1" : "0");
-    m_ipc.SendSetParam("modules.bs2b", m_modules[1] ? "1" : "0");
-    m_ipc.SendSetParam("modules.ddc", m_modules[2] ? "1" : "0");
-    m_ipc.SendSetParam("modules.limiter", m_modules[3] ? "1" : "0");
-    m_ipc.SendSetParam("modules.compressor", m_modules[4] ? "1" : "0");
-    m_ipc.SendSetParam("modules.convolver", m_modules[5] ? "1" : "0");
-    m_ipc.SendSetParam("modules.reverb", m_modules[6] ? "1" : "0");
-    m_ipc.SendSetParam("modules.bassboost", m_modules[7] ? "1" : "0");
-    m_ipc.SendSetParam("modules.stereo", m_modules[8] ? "1" : "0");
-    m_ipc.SendSetParam("modules.iir", m_modules[9] ? "1" : "0");
-
-    for (int i = 0; i < 10; i++) {
-        char key[64], val[64];
-        sprintf_s(key, "eq.band%d.freq", i);
-        sprintf_s(val, "%.1f", m_eq_bands[i].frequency);
-        m_ipc.SendSetParam(key, val);
-        sprintf_s(key, "eq.band%d.gain", i);
-        sprintf_s(val, "%.2f", m_eq_bands[i].gain);
-        m_ipc.SendSetParam(key, val);
-        sprintf_s(key, "eq.band%d.q", i);
-        sprintf_s(val, "%.3f", m_eq_bands[i].q);
-        m_ipc.SendSetParam(key, val);
-        sprintf_s(key, "eq.band%d.enable", i);
-        m_ipc.SendSetParam(key, m_eq_bands[i].enabled ? "1" : "0");
-    }
-
-    char val[64];
-    sprintf_s(val, "%.1f", m_comp_threshold);
-    m_ipc.SendSetParam("compressor.threshold", val);
-    sprintf_s(val, "%.1f", m_comp_ratio);
-    m_ipc.SendSetParam("compressor.ratio", val);
-    sprintf_s(val, "%.1f", m_comp_attack);
-    m_ipc.SendSetParam("compressor.attack", val);
-    sprintf_s(val, "%.1f", m_comp_release);
-    m_ipc.SendSetParam("compressor.release", val);
-    sprintf_s(val, "%.1f", m_lim_threshold);
-    m_ipc.SendSetParam("limiter.threshold", val);
-    sprintf_s(val, "%.1f", m_lim_release);
-    m_ipc.SendSetParam("limiter.release", val);
-
-    sprintf_s(val, "%.1f", m_bass_boost);
-    m_ipc.SendSetParam("bassboost.gain", val);
-    sprintf_s(val, "%.1f", m_bass_freq);
-    m_ipc.SendSetParam("bassboost.freq", val);
-    sprintf_s(val, "%.1f", m_stereo_width);
-    m_ipc.SendSetParam("stereo.width", val);
-    sprintf_s(val, "%.2f", m_reverb_room);
-    m_ipc.SendSetParam("reverb.roomsize", val);
-    sprintf_s(val, "%.2f", m_reverb_damp);
-    m_ipc.SendSetParam("reverb.damping", val);
-    sprintf_s(val, "%.2f", m_reverb_wet);
-    m_ipc.SendSetParam("reverb.wet", val);
-    sprintf_s(val, "%.1f", m_tube_drive);
-    m_ipc.SendSetParam("tube.drive", val);
-    sprintf_s(val, "%.1f", m_bs2b_feed);
-    m_ipc.SendSetParam("bs2b.feed", val);
-    sprintf_s(val, "%.1f", m_bs2b_freq);
-    m_ipc.SendSetParam("bs2b.freq", val);
-    sprintf_s(val, "%.1f", m_conv_gain);
-    m_ipc.SendSetParam("convolver.gain", val);
+    // Full push so the running host is guaranteed to match the preset we write.
+    m_live_blob = m_settings_blob;
+    JdspSendToActive(m_settings_blob);
 }
 
 void JdspConfigDialog::OnLanguageChange(HWND hwnd) {
