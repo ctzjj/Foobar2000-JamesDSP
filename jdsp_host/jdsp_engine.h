@@ -67,7 +67,7 @@ private:
     // BS2B level parameters, used when the mode is 0 or 1 (BS2B): feed in dB
     // (1.0..15.0) and cutoff frequency in Hz (300..2000). The library ships the
     // BS2B_*_CLEVEL presets only; these let the user dial the crossfeed in.
-    double m_bs2b_feed = 6.0;
+    double m_bs2b_feed = 4.5;
     double m_bs2b_fcut = 700.0;
 
     // Limiter: library requires threshold <= -0.09 dB and release >= 0.15 ms.

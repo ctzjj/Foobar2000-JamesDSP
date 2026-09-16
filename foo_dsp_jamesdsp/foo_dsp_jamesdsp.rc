@@ -196,7 +196,7 @@ BEGIN
     COMBOBOX         IDC_COMBO_BS2B_MODE,                          54, 146, 118, 120, CBS_DROPDOWNLIST | WS_VSCROLL
     LTEXT            "Feed (dB):",           IDL_FX_BS2B_FEED,      182, 132, 54, 10
     CONTROL          "",                     IDC_SLIDER_BS2B_FEED, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 238, 130, 88, 14
-    LTEXT            "6.0 dB",               IDC_STATIC_BS2B_FEED,  330, 132, 44, 10
+    LTEXT            "4.5 dB",               IDC_STATIC_BS2B_FEED,  330, 132, 44, 10
     LTEXT            "Cutoff (Hz):",         IDL_FX_BS2B_FCUT,      182, 148, 54, 10
     CONTROL          "",                     IDC_SLIDER_BS2B_FCUT, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 238, 146, 88, 14
     LTEXT            "700 Hz",               IDC_STATIC_BS2B_FCUT,  330, 148, 48, 10

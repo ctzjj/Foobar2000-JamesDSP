@@ -231,7 +231,22 @@ void JdspEngine::ApplyReverbScalars() {
     rv->bassb = (float)m_reverb_bass;
 }
 
-// Modes 0 and 1 are the BS2B algorithm, 2..5 use the built-in HRTF convolvers.
+// Our seven UI modes map onto the library's six crossfeed modes. The library only
+// has two BS2B slots, so the three BS2B presets (default, CMOY, JMEIER) share them.
+// 0 = BS2B default, 1 = BS2B level 1, 2 = BS2B level 2, 3 = HRTF crossfeed,
+// 4/5/6 = HRTF surround 1/2/3.
+static int LibBs2bMode(int ui_mode) {
+    switch (ui_mode) {
+        case 0:
+        case 1:  return 0;
+        case 2:  return 1;
+        case 3:  return 2;
+        case 4:  return 3;
+        case 5:  return 4;
+        default: return 5;
+    }
+}
+
 // CrossfeedEnable() initialises both BS2B slots with the library's preset clevels
 // and CrossfeedChangeMode() wipes bs2b[] again, so the user's feed/cutoff are
 // written last, straight into the slot the active mode selects.
@@ -244,26 +259,37 @@ void JdspEngine::ApplyCrossfeed() {
     } else {
         CrossfeedDisable(jdsp);
     }
-    CrossfeedChangeMode(jdsp, m_bs2b_mode);
 
-    if (m_bs2b_mode < 2) {
+    int lib_mode = LibBs2bMode(clamp_int(m_bs2b_mode, 0, 6));
+    CrossfeedChangeMode(jdsp, lib_mode);
+
+    if (lib_mode < 2) {
         unsigned int fcut = (unsigned int)clamp_double(m_bs2b_fcut, 300.0, 2000.0);
         unsigned int feed = (unsigned int)clamp_double(m_bs2b_feed * 10.0, 10.0, 150.0);
         int flevel = BS2BCalculateflevel(fcut, feed);
-        BS2BInit(&jdsp->advXF.bs2b[m_bs2b_mode], (unsigned int)jdsp->fs, flevel);
+        BS2BInit(&jdsp->advXF.bs2b[lib_mode], (unsigned int)jdsp->fs, flevel);
     }
 }
 
-// The library expresses BS2B level 1 / level 2 as two fixed clevels (CMOY and
-// JMEIER). Picking a mode loads that preset into the feed/cutoff parameters, which
-// the user can then adjust - mirroring how the reverb presets populate their sliders.
+// The library expresses the BS2B presets as three fixed clevels. Picking a mode loads
+// that preset into the feed/cutoff parameters, which the user can then adjust -
+// mirroring how the reverb presets populate their sliders.
 void JdspEngine::LoadBs2bModeDefaults() {
-    if (m_bs2b_mode == 0) {          // BS2B_CMOY_CLEVEL   700 Hz / 6.0 dB
-        m_bs2b_fcut = 700.0;
-        m_bs2b_feed = 6.0;
-    } else if (m_bs2b_mode == 1) {   // BS2B_JMEIER_CLEVEL 650 Hz / 9.5 dB
-        m_bs2b_fcut = 650.0;
-        m_bs2b_feed = 9.5;
+    switch (m_bs2b_mode) {
+        case 0:                       // BS2B_DEFAULT_CLEVEL 700 Hz / 4.5 dB
+            m_bs2b_fcut = 700.0;
+            m_bs2b_feed = 4.5;
+            break;
+        case 1:                       // BS2B_CMOY_CLEVEL    700 Hz / 6.0 dB
+            m_bs2b_fcut = 700.0;
+            m_bs2b_feed = 6.0;
+            break;
+        case 2:                       // BS2B_JMEIER_CLEVEL  650 Hz / 9.5 dB
+            m_bs2b_fcut = 650.0;
+            m_bs2b_feed = 9.5;
+            break;
+        default:                      // HRTF modes use no BS2B
+            break;
     }
 }
 
@@ -490,7 +516,7 @@ void JdspEngine::SetParam(const std::string& key, const std::string& value) {
 
     // ---- crossfeed ----
     else if (key == "bs2b.mode") {
-        m_bs2b_mode = clamp_int(iv, 0, 5);
+        m_bs2b_mode = clamp_int(iv, 0, 6);
         LoadBs2bModeDefaults();
         ApplyCrossfeed();
     }

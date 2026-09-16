@@ -473,11 +473,12 @@ void JdspConfigDialog::OnCommand(HWND hwnd, WPARAM wParam, LPARAM lParam) {
         m_reverb_er = p.ertolate;
         InitEffectsTab(hwnd);
     } else if (id == IDC_COMBO_BS2B_MODE && code == CBN_SELCHANGE) {
-        // BS2B level 1 / level 2 load their clevel into the feed/cutoff sliders.
+        // The three BS2B presets load their clevel into the feed/cutoff sliders.
         ApplyEffectsTab(hwnd);
         switch (m_bs2b_mode) {
-            case 0: m_bs2b_fcut = 700.0; m_bs2b_feed = 6.0; break;   // BS2B_CMOY_CLEVEL
-            case 1: m_bs2b_fcut = 650.0; m_bs2b_feed = 9.5; break;   // BS2B_JMEIER_CLEVEL
+            case 0: m_bs2b_fcut = 700.0; m_bs2b_feed = 4.5; break;   // BS2B_DEFAULT_CLEVEL
+            case 1: m_bs2b_fcut = 700.0; m_bs2b_feed = 6.0; break;   // BS2B_CMOY_CLEVEL
+            case 2: m_bs2b_fcut = 650.0; m_bs2b_feed = 9.5; break;   // BS2B_JMEIER_CLEVEL
             default: break;                                          // HRTF modes use no BS2B
         }
         InitEffectsTab(hwnd);
@@ -539,7 +540,7 @@ void JdspConfigDialog::OnCommand(HWND hwnd, WPARAM wParam, LPARAM lParam) {
         for (int i = 0; i < JDSP_COMP_BANDS; i++) m_comp_band_gain[i] = 0.0;
         m_lim_threshold = -1.0; m_lim_release = 50.0;
         m_tube_drive_db = 3.0; m_bs2b_mode = 0; m_bass_boost = 6.0;
-        m_bs2b_feed = 6.0; m_bs2b_fcut = 700.0;
+        m_bs2b_feed = 4.5; m_bs2b_fcut = 700.0;
         m_stereo_width = 50.0; m_reverb_preset = 0; m_output_gain = 0.0;
         {
             const JdspReverbParams& p = kJdspReverbPresets[0];
@@ -1021,7 +1022,7 @@ void JdspConfigDialog::DeserializeSettings(const std::string& blob) {
         else if (k == "limiter.threshold")       m_lim_threshold = atof(v.c_str());
         else if (k == "limiter.release")         m_lim_release = atof(v.c_str());
         else if (k == "tube.drive")              m_tube_drive_db = atof(v.c_str());
-        else if (k == "bs2b.mode")               { m_bs2b_mode = atoi(v.c_str()); if (m_bs2b_mode < 0 || m_bs2b_mode > 5) m_bs2b_mode = 0; }
+        else if (k == "bs2b.mode")               { m_bs2b_mode = atoi(v.c_str()); if (m_bs2b_mode < 0 || m_bs2b_mode > 6) m_bs2b_mode = 0; }
         else if (k == "bs2b.feed")               { m_bs2b_feed = atof(v.c_str()); if (m_bs2b_feed < 1.0) m_bs2b_feed = 1.0; if (m_bs2b_feed > 15.0) m_bs2b_feed = 15.0; }
         else if (k == "bs2b.freq")               { m_bs2b_fcut = atof(v.c_str()); if (m_bs2b_fcut < 300.0) m_bs2b_fcut = 300.0; if (m_bs2b_fcut > 2000.0) m_bs2b_fcut = 2000.0; }
         else if (k == "bassboost.gain")          m_bass_boost = atof(v.c_str());
@@ -1415,11 +1416,11 @@ void JdspConfigDialog::InitEffectsTab(HWND hwnd) {
     HWND xf = GetDlgItem(tab, IDC_COMBO_BS2B_MODE);
     if (xf) {
         SendMessageW(xf, CB_RESETCONTENT, 0, 0);
-        static const wchar_t* mode_names[6] = {
-            L"BS2B Level 1", L"BS2B Level 2", L"HRTF Crossfeed",
+        static const wchar_t* mode_names[7] = {
+            L"BS2B Default", L"BS2B Level 1", L"BS2B Level 2", L"HRTF Crossfeed",
             L"HRTF Surround 1", L"HRTF Surround 2", L"HRTF Surround 3"
         };
-        for (int i = 0; i < 6; i++) SendMessageW(xf, CB_ADDSTRING, 0, (LPARAM)mode_names[i]);
+        for (int i = 0; i < 7; i++) SendMessageW(xf, CB_ADDSTRING, 0, (LPARAM)mode_names[i]);
         SendMessageW(xf, CB_SETCURSEL, m_bs2b_mode, 0);
     }
     set_slider(IDC_SLIDER_BS2B_FEED, 10, 150, (int)(m_bs2b_feed * 10.0));
@@ -1457,7 +1458,7 @@ void JdspConfigDialog::ApplyEffectsTab(HWND hwnd) {
     HWND xf = GetDlgItem(tab, IDC_COMBO_BS2B_MODE);
     if (xf) {
         int s = (int)SendMessageW(xf, CB_GETCURSEL, 0, 0);
-        if (s >= 0 && s <= 5) m_bs2b_mode = s;
+        if (s >= 0 && s <= 6) m_bs2b_mode = s;
     }
     m_bs2b_feed = get_pos(IDC_SLIDER_BS2B_FEED) / 10.0;
     m_bs2b_fcut = (double)get_pos(IDC_SLIDER_BS2B_FCUT);
