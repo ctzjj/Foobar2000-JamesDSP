@@ -180,6 +180,9 @@ static std::string UnescapeValue(const std::string& v) {
             o += v[i];
         }
     }
+    // Tolerate blobs written with CRLF line endings: the trailing CR would
+    // otherwise become part of the value and break file paths.
+    while (!o.empty() && (o.back() == '\r' || o.back() == '\n')) o.pop_back();
     return o;
 }
 

@@ -31,6 +31,22 @@ static double parse_float(const char* s) {
     return s ? atof(s) : 0.0;
 }
 
+static int parse_int(const char* s) {
+    return s ? atoi(s) : 0;
+}
+
+static double clamp_double(double v, double lo, double hi) {
+    if (v < lo) return lo;
+    if (v > hi) return hi;
+    return v;
+}
+
+static int clamp_int(int v, int lo, int hi) {
+    if (v < lo) return lo;
+    if (v > hi) return hi;
+    return v;
+}
+
 static std::wstring Utf8ToWide(const std::string& s) {
     if (s.empty()) return std::wstring();
     int n = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), nullptr, 0);
@@ -40,8 +56,8 @@ static std::wstring Utf8ToWide(const std::string& s) {
     return w;
 }
 
-// Reads a small text file (DDC profile / EEL2 script). Returns an empty string on
-// any error.
+// Reads a small text file (DDC profile / spectrum response / EEL2 script).
+// Returns an empty string on any error.
 static std::string ReadTextFile(const std::wstring& path) {
     std::string out;
     if (path.empty()) return out;
@@ -76,17 +92,29 @@ bool JdspEngine::Initialize(uint32_t sample_rate, uint32_t channels) {
     JamesDSPInit(JDSP(m_jdsp), (int)m_block_size, (float)m_sample_rate);
     JamesDSPReallocateBlock(JDSP(m_jdsp), m_block_size);
 
-    CompressorConstructor(JDSP(m_jdsp));
-    BassBoostConstructor(JDSP(m_jdsp));
-    MultimodalEqualizerConstructor(JDSP(m_jdsp));
-    StereoEnhancementConstructor(JDSP(m_jdsp));
-    CrossfeedConstructor(JDSP(m_jdsp));
-    DDCConstructor(JDSP(m_jdsp));
-    Convolver1DConstructor(JDSP(m_jdsp));
-    LiveProgConstructor(JDSP(m_jdsp));
-    ArbitraryResponseEqualizerConstructor(JDSP(m_jdsp));
+    JamesDSPLib* jdsp = JDSP(m_jdsp);
 
+    CompressorConstructor(jdsp);
+    BassBoostConstructor(jdsp);
+    MultimodalEqualizerConstructor(jdsp);
+    StereoEnhancementConstructor(jdsp);
+    CrossfeedConstructor(jdsp);
+    DDCConstructor(jdsp);
+    Convolver1DConstructor(jdsp);
+    LiveProgConstructor(jdsp);
+    ArbitraryResponseEqualizerConstructor(jdsp);
+
+    // The constructors leave most parameters at zero, which is not a usable
+    // setting for several of them (a zero compressor time constant means an
+    // instant envelope follower). Push the real defaults once.
+    ApplyCompressor();
+    ApplyEqualizer();
     UpdateLimiter();
+    BassBoostSetParam(jdsp, (float)m_bass_boost);
+    StereoEnhancementSetParam(jdsp, (float)(m_stereo_width / 100.0));
+    Reverb_SetParam(jdsp, m_reverb_preset);
+    CrossfeedChangeMode(jdsp, m_bs2b_mode);
+    JamesDSPSetPostGain(jdsp, m_output_gain);
 
     m_initialized = true;
     return true;
@@ -98,20 +126,33 @@ bool JdspEngine::Initialize(uint32_t sample_rate, uint32_t channels) {
 // cannot push the output past full scale. We do the same: when the Limiter
 // module is unchecked the threshold stays at 0 dBFS, which is bit-exact
 // transparent for anything below full scale and only catches overshoot.
+// The library requires threshold <= -0.09 dB and release >= 0.15 ms.
 void JdspEngine::UpdateLimiter() {
     if (!m_jdsp) return;
     JamesDSPLib* jdsp = JDSP(m_jdsp);
-    double threshold_db = m_module_enabled[3] ? (double)m_lim_threshold : 0.0;
-    JLimiterSetCoefficients(jdsp, threshold_db, m_lim_release);
+
+    double threshold_db = 0.0;
+    double release_ms = 100.0;
+    if (m_module_enabled[kModLimiter]) {
+        threshold_db = clamp_double(m_lim_threshold, -60.0, -0.09);
+        release_ms = clamp_double(m_lim_release, 0.15, 5000.0);
+    }
+    JLimiterSetCoefficients(jdsp, threshold_db, release_ms);
 }
 
-// The UI exposes the drive as a 0..100 percentage, while the library API takes
-// dB and clamps to [-3, +12].
-double JdspEngine::TubeDriveDb() const {
-    double pct = (double)m_tube_drive;
-    if (pct < 0.0) pct = 0.0;
-    if (pct > 100.0) pct = 100.0;
-    return -3.0 + (pct / 100.0) * 15.0;
+void JdspEngine::ApplyEqualizer() {
+    if (!m_jdsp) return;
+    // MultimodalEqualizerAxisInterpolation clamps the gains to +-64 dB itself
+    // and expects exactly 15 frequency/gain pairs.
+    MultimodalEqualizerAxisInterpolation(JDSP(m_jdsp), m_eq_interpolation, m_eq_filter_type,
+                                         m_eq_freq, m_eq_gain);
+}
+
+void JdspEngine::ApplyCompressor() {
+    if (!m_jdsp) return;
+    JamesDSPLib* jdsp = JDSP(m_jdsp);
+    CompressorSetParam(jdsp, (float)m_comp_time, m_comp_granularity, m_comp_tfresolution, 1);
+    CompressorSetGain(jdsp, m_comp_band_freq, m_comp_band_gain, 1);
 }
 
 bool JdspEngine::LoadImpulseResponse(const std::wstring& path) {
@@ -143,7 +184,7 @@ bool JdspEngine::LoadImpulseResponse(const std::wstring& path) {
         return false;
     }
     // Loading does not turn the convolver on; only the module flag does that.
-    if (m_module_enabled[5]) Convolver1DEnable(jdsp);
+    if (m_module_enabled[kModConvolver]) Convolver1DEnable(jdsp);
     m_ir_path_last = path;
     EngineLog("LoadImpulseResponse: ok (%u ch, %u frames)",
            (unsigned)channels, (unsigned)frames);
@@ -173,9 +214,36 @@ bool JdspEngine::LoadDdcProfile(const std::wstring& path) {
         EngineLog("LoadDdcProfile: DDCStringParser failed");
         return false;
     }
-    if (m_module_enabled[2]) DDCEnable(jdsp, 1);
+    if (m_module_enabled[kModDdc]) DDCEnable(jdsp, 1);
     m_ddc_path_last = path;
     EngineLog("LoadDdcProfile: ok");
+    return true;
+}
+
+// The spectrum extender takes a text file of "gain frequency" number pairs
+// (see ArbFIRGen.c ArbitraryEqString2SortedNodes).
+bool JdspEngine::LoadSpectrumProfile(const std::wstring& path) {
+    if (!m_jdsp) return false;
+    if (path == m_spectrum_path_last) return true;
+
+    JamesDSPLib* jdsp = JDSP(m_jdsp);
+
+    if (path.empty()) {
+        m_spectrum_path_last.clear();
+        return true;
+    }
+
+    std::string text = ReadTextFile(path);
+    if (text.empty()) {
+        EngineLog("LoadSpectrumProfile: cannot read profile");
+        return false;
+    }
+    text.push_back('\0');
+
+    ArbitraryResponseEqualizerStringParser(jdsp, &text[0]);
+    if (m_module_enabled[kModSpectrum]) ArbitraryResponseEqualizerEnable(jdsp, 1);
+    m_spectrum_path_last = path;
+    EngineLog("LoadSpectrumProfile: ok");
     return true;
 }
 
@@ -198,7 +266,7 @@ bool JdspEngine::LoadEelScript(const std::string& text) {
         EngineLog("LoadEelScript: %s", checkErrorCode(err));
         return false;
     }
-    if (m_module_enabled[12]) LiveProgEnable(jdsp);
+    if (m_module_enabled[kModEel2]) LiveProgEnable(jdsp);
     EngineLog("LoadEelScript: ok");
     return true;
 }
@@ -242,77 +310,162 @@ void JdspEngine::SetParam(const std::string& key, const std::string& value) {
     JamesDSPLib* jdsp = JDSP(m_jdsp);
     const char* val = value.c_str();
     double dv = parse_float(val);
+    int iv = parse_int(val);
 
+    // ---- module enables ----
     if (key == "modules.analog") {
-        m_module_enabled[0] = (atoi(val) != 0);
+        m_module_enabled[kModAnalog] = (iv != 0);
         // VacuumTubeEnable() runs VTInit() which resets pregain/postgain, so the
         // drive must be applied afterwards (otherwise the slider does nothing).
-        if (m_module_enabled[0]) { VacuumTubeEnable(jdsp); VacuumTubeSetGain(jdsp, TubeDriveDb()); }
+        if (m_module_enabled[kModAnalog]) { VacuumTubeEnable(jdsp); VacuumTubeSetGain(jdsp, m_tube_drive_db); }
         else VacuumTubeDisable(jdsp);
     }
-    else if (key == "modules.bs2b") { m_module_enabled[1] = (atoi(val) != 0); CrossfeedEnable(jdsp, m_module_enabled[1]); }
-    else if (key == "modules.ddc") { m_module_enabled[2] = (atoi(val) != 0); DDCEnable(jdsp, m_module_enabled[2]); }
-    else if (key == "modules.limiter") { m_module_enabled[3] = (atoi(val) != 0); UpdateLimiter(); }
-    else if (key == "modules.compressor") { m_module_enabled[4] = (atoi(val) != 0); CompressorEnable(jdsp, m_module_enabled[4]); }
-    else if (key == "modules.convolver") {
-        m_module_enabled[5] = (atoi(val) != 0);
-        if (m_module_enabled[5]) Convolver1DEnable(jdsp); else Convolver1DDisable(jdsp);
+    else if (key == "modules.bs2b") {
+        m_module_enabled[kModBs2b] = (iv != 0);
+        CrossfeedEnable(jdsp, m_module_enabled[kModBs2b]);
     }
-    else if (key == "modules.reverb") { m_module_enabled[6] = (atoi(val) != 0); if (m_module_enabled[6]) ReverbEnable(jdsp); else ReverbDisable(jdsp); }
-    else if (key == "modules.bassboost") { m_module_enabled[7] = (atoi(val) != 0); if (m_module_enabled[7]) BassBoostEnable(jdsp); else BassBoostDisable(jdsp); }
-    else if (key == "modules.stereo") { m_module_enabled[8] = (atoi(val) != 0); if (m_module_enabled[8]) StereoEnhancementEnable(jdsp); else StereoEnhancementDisable(jdsp); }
-    else if (key == "modules.iir") { m_module_enabled[9] = (atoi(val) != 0); MultimodalEqualizerEnable(jdsp, m_module_enabled[9]); }
-    else if (key == "modules.spectrum") { m_module_enabled[10] = (atoi(val) != 0); ArbitraryResponseEqualizerEnable(jdsp, m_module_enabled[10]); }
-    else if (key == "modules.dynamic") { m_module_enabled[11] = (atoi(val) != 0); }
-    else if (key == "modules.eel2") { m_module_enabled[12] = (atoi(val) != 0); if (m_module_enabled[12]) LiveProgEnable(jdsp); else LiveProgDisable(jdsp); }
+    else if (key == "modules.ddc") {
+        m_module_enabled[kModDdc] = (iv != 0);
+        DDCEnable(jdsp, m_module_enabled[kModDdc]);
+    }
+    else if (key == "modules.limiter") { m_module_enabled[kModLimiter] = (iv != 0); UpdateLimiter(); }
+    else if (key == "modules.compressor") {
+        m_module_enabled[kModCompressor] = (iv != 0);
+        CompressorEnable(jdsp, m_module_enabled[kModCompressor]);
+    }
+    else if (key == "modules.convolver") {
+        m_module_enabled[kModConvolver] = (iv != 0);
+        if (m_module_enabled[kModConvolver]) Convolver1DEnable(jdsp); else Convolver1DDisable(jdsp);
+    }
+    else if (key == "modules.reverb") {
+        m_module_enabled[kModReverb] = (iv != 0);
+        if (m_module_enabled[kModReverb]) ReverbEnable(jdsp); else ReverbDisable(jdsp);
+    }
+    else if (key == "modules.bassboost") {
+        m_module_enabled[kModBassBoost] = (iv != 0);
+        if (m_module_enabled[kModBassBoost]) BassBoostEnable(jdsp); else BassBoostDisable(jdsp);
+    }
+    else if (key == "modules.stereo") {
+        m_module_enabled[kModStereo] = (iv != 0);
+        if (m_module_enabled[kModStereo]) StereoEnhancementEnable(jdsp); else StereoEnhancementDisable(jdsp);
+    }
+    else if (key == "modules.iir" || key == "modules.equalizer") {
+        m_module_enabled[kModEqualizer] = (iv != 0);
+        MultimodalEqualizerEnable(jdsp, m_module_enabled[kModEqualizer]);
+    }
+    else if (key == "modules.spectrum") {
+        m_module_enabled[kModSpectrum] = (iv != 0);
+        ArbitraryResponseEqualizerEnable(jdsp, m_module_enabled[kModSpectrum]);
+    }
+    else if (key == "modules.eel2") {
+        m_module_enabled[kModEel2] = (iv != 0);
+        if (m_module_enabled[kModEel2]) LiveProgEnable(jdsp); else LiveProgDisable(jdsp);
+    }
 
-    else if (key == "compressor.threshold") { m_comp_threshold = (float)dv; }
-    else if (key == "compressor.ratio") { m_comp_ratio = (float)dv; }
-    else if (key == "compressor.attack") { m_comp_attack = (float)dv; }
-    else if (key == "compressor.release") { m_comp_release = (float)dv; }
-    else if (key == "limiter.threshold") { m_lim_threshold = (float)dv; UpdateLimiter(); }
-    else if (key == "limiter.release") { m_lim_release = (float)dv; UpdateLimiter(); }
+    // ---- analog modelling ----
+    else if (key == "tube.drive") {
+        m_tube_drive_db = clamp_double(dv, -3.0, 12.0);
+        if (m_module_enabled[kModAnalog]) VacuumTubeSetGain(jdsp, m_tube_drive_db);
+    }
 
-    else if (key == "bassboost.gain") { m_bass_boost = (float)dv; BassBoostSetParam(jdsp, m_bass_boost); }
-    else if (key == "bassboost.freq") { m_bass_freq = (float)dv; }
-    else if (key == "stereo.width") { m_stereo_width = (float)dv; StereoEnhancementSetParam(jdsp, m_stereo_width / 100.0f); }
-    else if (key == "reverb.roomsize") { m_reverb_room = (float)dv; Reverb_SetParam(jdsp, SF_REVERB_PRESET_DEFAULT); }
-    else if (key == "reverb.damping") { m_reverb_damp = (float)dv; }
-    else if (key == "reverb.wet") { m_reverb_wet = (float)dv; }
-    else if (key == "tube.drive") { m_tube_drive = (float)dv; if (m_module_enabled[0]) VacuumTubeSetGain(jdsp, TubeDriveDb()); }
-    else if (key == "bs2b.feed") { m_bs2b_feed = (float)dv; }
-    else if (key == "bs2b.freq") { m_bs2b_freq = (float)dv; }
-    else if (key == "convolver.gain") { m_conv_gain = (float)dv; JamesDSPSetPostGain(jdsp, m_conv_gain); }
-    else if (key == "convolver.path") { LoadImpulseResponse(Utf8ToWide(value)); }
-    else if (key == "ddc.profile") { LoadDdcProfile(Utf8ToWide(value)); }
-    else if (key == "script.text") { LoadEelScript(value); }
+    // ---- crossfeed ----
+    else if (key == "bs2b.mode") {
+        m_bs2b_mode = clamp_int(iv, 0, 5);
+        CrossfeedChangeMode(jdsp, m_bs2b_mode);
+    }
 
-    else if (key.find("eq.band") == 0) {
-        int band = atoi(key.c_str() + 7);
-        if (band >= 0 && band < 10) {
+    // ---- limiter ----
+    else if (key == "limiter.threshold") {
+        m_lim_threshold = clamp_double(dv, -60.0, -0.09);
+        UpdateLimiter();
+    }
+    else if (key == "limiter.release") {
+        m_lim_release = clamp_double(dv, 0.15, 5000.0);
+        UpdateLimiter();
+    }
+
+    // ---- global output gain ----
+    else if (key == "output.gain") {
+        m_output_gain = clamp_double(dv, -15.0, 15.0);
+        JamesDSPSetPostGain(jdsp, m_output_gain);
+    }
+
+    // ---- compressor (spectral compander) ----
+    else if (key == "compressor.timeconstant") {
+        m_comp_time = clamp_double(dv, 0.001, 10.0);
+        ApplyCompressor();
+    }
+    else if (key == "compressor.granularity") {
+        m_comp_granularity = clamp_int(iv, 0, 3);
+        ApplyCompressor();
+    }
+    else if (key == "compressor.tfresolution") {
+        m_comp_tfresolution = clamp_int(iv, 0, 3);
+        ApplyCompressor();
+    }
+    else if (key.find("compressor.band") == 0) {
+        int band = atoi(key.c_str() + 15);
+        if (band >= 0 && band < kCompBands) {
             size_t dot = key.rfind('.');
-            std::string param = key.substr(dot + 1);
-            if (param == "freq") jdsp->mEQ.freq[band + 1] = dv;
-            else if (param == "gain") jdsp->mEQ.gain[band + 1] = dv;
-            jdsp->equalizerForceRefresh = 1;
+            if (dot != std::string::npos && key.substr(dot + 1) == "gain") {
+                m_comp_band_gain[band] = clamp_double(dv, -60.0, 60.0);
+                ApplyCompressor();
+            }
         }
     }
+
+    // ---- FIR equalizer ----
+    else if (key == "eq.filtertype") {
+        m_eq_filter_type = clamp_int(iv, 0, 5);
+        ApplyEqualizer();
+    }
+    else if (key == "eq.interpolation") {
+        m_eq_interpolation = clamp_int(iv, 0, 1);
+        ApplyEqualizer();
+    }
+    else if (key.find("eq.band") == 0) {
+        int band = atoi(key.c_str() + 7);
+        if (band >= 0 && band < kEqBands) {
+            size_t dot = key.rfind('.');
+            std::string param = (dot == std::string::npos) ? std::string() : key.substr(dot + 1);
+            if (param == "freq") {
+                m_eq_freq[band] = clamp_double(dv, 20.0, 20000.0);
+                ApplyEqualizer();
+            } else if (param == "gain") {
+                m_eq_gain[band] = clamp_double(dv, -64.0, 64.0);
+                ApplyEqualizer();
+            }
+        }
+    }
+
+    // ---- reverb ----
+    else if (key == "reverb.preset") {
+        m_reverb_preset = clamp_int(iv, 0, 18);
+        Reverb_SetParam(jdsp, m_reverb_preset);
+    }
+
+    // ---- bass boost ----
+    else if (key == "bassboost.gain") {
+        m_bass_boost = clamp_double(dv, 0.0, 15.0);
+        BassBoostSetParam(jdsp, (float)m_bass_boost);
+    }
+
+    // ---- stereo widener ----
+    else if (key == "stereo.width") {
+        m_stereo_width = clamp_double(dv, 0.0, 100.0);
+        StereoEnhancementSetParam(jdsp, (float)(m_stereo_width / 100.0));
+    }
+
+    // ---- file backed modules ----
+    else if (key == "convolver.path") { LoadImpulseResponse(Utf8ToWide(value)); }
+    else if (key == "ddc.profile") { LoadDdcProfile(Utf8ToWide(value)); }
+    else if (key == "spectrum.path") { LoadSpectrumProfile(Utf8ToWide(value)); }
+    else if (key == "script.text") { LoadEelScript(value); }
 }
 
 bool JdspEngine::AnyModuleEnabled() const {
-    for (int i = 0; i < 13; i++) {
+    for (int i = 0; i < kModCount; i++) {
         if (m_module_enabled[i]) return true;
     }
     return false;
-}
-
-void JdspEngine::ApplyAllParams() {
-    if (!m_jdsp) return;
-    JamesDSPLib* jdsp = JDSP(m_jdsp);
-    CompressorSetParam(jdsp, m_comp_ratio, 10, 20, 1);
-    UpdateLimiter();
-    BassBoostSetParam(jdsp, m_bass_boost);
-    StereoEnhancementSetParam(jdsp, m_stereo_width / 100.0f);
-    VacuumTubeSetGain(jdsp, TubeDriveDb());
-    JamesDSPSetPostGain(jdsp, m_conv_gain);
 }
