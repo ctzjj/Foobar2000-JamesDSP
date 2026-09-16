@@ -113,6 +113,8 @@ private:
 
     double m_tube_drive_db = 3.0;             // dB, library clamps -3..+12
     int m_bs2b_mode = 0;                      // 0..5
+    double m_bs2b_feed = 6.0;                 // dB, 1.0..15.0 (modes 0/1)
+    double m_bs2b_fcut = 700.0;               // Hz, 300..2000 (modes 0/1)
     double m_bass_boost = 6.0;                // dB 0..15
     double m_stereo_width = 50.0;             // %, 50 is the library identity
     int m_reverb_preset = 0;                  // 0..18

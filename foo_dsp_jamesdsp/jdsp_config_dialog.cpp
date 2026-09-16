@@ -174,6 +174,8 @@ static const UiLabelDef kUiLabels[] = {
     { IDL_FX_BS2B_GRP,       L"BS2B Crossfeed", L"BS2B \x8de8\x9988" },
     { IDC_CHK_BS2B_EFFECT,   L"Enable",         L"\x542f\x7528" },
     { IDL_FX_BS2B_MODE,      L"Mode:",          L"\x6a21\x5f0f:" },
+    { IDL_FX_BS2B_FEED,      L"Feed (dB):",     L"\x9988\x5165 (dB):" },
+    { IDL_FX_BS2B_FCUT,      L"Cutoff (Hz):",   L"\x622a\x6b62\x9891\x7387 (Hz):" },
     { IDL_FX_OUTPUT_GRP,     L"Output",         L"\x8f93\x51fa" },
     { IDL_FX_OUTPUT_GAIN,    L"Output gain (dB):", L"\x8f93\x51fa\x589e\x76ca (dB):" },
     // Convolver tab
@@ -470,6 +472,15 @@ void JdspConfigDialog::OnCommand(HWND hwnd, WPARAM wParam, LPARAM lParam) {
         m_reverb_predelay = p.delay;
         m_reverb_er = p.ertolate;
         InitEffectsTab(hwnd);
+    } else if (id == IDC_COMBO_BS2B_MODE && code == CBN_SELCHANGE) {
+        // BS2B level 1 / level 2 load their clevel into the feed/cutoff sliders.
+        ApplyEffectsTab(hwnd);
+        switch (m_bs2b_mode) {
+            case 0: m_bs2b_fcut = 700.0; m_bs2b_feed = 6.0; break;   // BS2B_CMOY_CLEVEL
+            case 1: m_bs2b_fcut = 650.0; m_bs2b_feed = 9.5; break;   // BS2B_JMEIER_CLEVEL
+            default: break;                                          // HRTF modes use no BS2B
+        }
+        InitEffectsTab(hwnd);
     } else if (id == IDC_BTN_SAVE_CONFIG && code == BN_CLICKED) {
         SyncFromControls(hwnd);
         wchar_t path[MAX_PATH] = {};
@@ -528,6 +539,7 @@ void JdspConfigDialog::OnCommand(HWND hwnd, WPARAM wParam, LPARAM lParam) {
         for (int i = 0; i < JDSP_COMP_BANDS; i++) m_comp_band_gain[i] = 0.0;
         m_lim_threshold = -1.0; m_lim_release = 50.0;
         m_tube_drive_db = 3.0; m_bs2b_mode = 0; m_bass_boost = 6.0;
+        m_bs2b_feed = 6.0; m_bs2b_fcut = 700.0;
         m_stereo_width = 50.0; m_reverb_preset = 0; m_output_gain = 0.0;
         {
             const JdspReverbParams& p = kJdspReverbPresets[0];
@@ -709,7 +721,9 @@ void JdspConfigDialog::OnHScroll(HWND hwnd, WPARAM wParam, LPARAM lParam) {
     else if (id == IDC_SLIDER_TUBE_DRIVE) UpdateSliderLabel(tab, id, IDC_STATIC_TUBE_DRIVE, L"%.1f dB", pos / 10.0f);
     else if (id == IDC_SLIDER_BASS_BOOST) UpdateSliderLabel(tab, id, IDC_STATIC_BASS_BOOST, L"%.1f dB", pos / 10.0f);
     else if (id == IDC_SLIDER_STEREO_WIDTH) UpdateSliderLabel(tab, id, IDC_STATIC_STEREO_WIDTH, L"%.0f%%", (float)pos);
-    else if (id == IDC_SLIDER_OUTPUT_GAIN) UpdateSliderLabel(tab, id, IDC_STATIC_OUTPUT_GAIN, L"%.1f dB", pos / 10.0f);
+        else if (id == IDC_SLIDER_OUTPUT_GAIN) UpdateSliderLabel(tab, id, IDC_STATIC_OUTPUT_GAIN, L"%.1f dB", pos / 10.0f);
+        else if (id == IDC_SLIDER_BS2B_FEED) UpdateSliderLabel(tab, id, IDC_STATIC_BS2B_FEED, L"%.1f dB", pos / 10.0f);
+        else if (id == IDC_SLIDER_BS2B_FCUT) UpdateSliderLabel(tab, id, IDC_STATIC_BS2B_FCUT, L"%.0f Hz", (float)pos);
     else if (id == IDC_SLIDER_REVERB_WET) UpdateSliderLabel(tab, id, IDC_STATIC_REVERB_WET, L"%.1f dB", pos / 10.0f);
     else if (id == IDC_SLIDER_REVERB_DRY) UpdateSliderLabel(tab, id, IDC_STATIC_REVERB_DRY, L"%.1f dB", pos / 10.0f);
     else if (id == IDC_SLIDER_REVERB_WIDTH) UpdateSliderLabel(tab, id, IDC_STATIC_REVERB_WIDTH, L"%.0f%%", (float)pos);
@@ -928,6 +942,8 @@ std::string JdspConfigDialog::SerializeSettings() const {
     sprintf_s(buf, "%.3f", m_lim_release);   kv("limiter.release", buf);
     sprintf_s(buf, "%.3f", m_tube_drive_db); kv("tube.drive", buf);
     sprintf_s(buf, "%d", m_bs2b_mode);       kv("bs2b.mode", buf);
+    sprintf_s(buf, "%.3f", m_bs2b_feed);     kv("bs2b.feed", buf);
+    sprintf_s(buf, "%.3f", m_bs2b_fcut);     kv("bs2b.freq", buf);
     sprintf_s(buf, "%.3f", m_bass_boost);    kv("bassboost.gain", buf);
     sprintf_s(buf, "%.3f", m_stereo_width);  kv("stereo.width", buf);
     sprintf_s(buf, "%d", m_reverb_preset);   kv("reverb.preset", buf);
@@ -1006,6 +1022,8 @@ void JdspConfigDialog::DeserializeSettings(const std::string& blob) {
         else if (k == "limiter.release")         m_lim_release = atof(v.c_str());
         else if (k == "tube.drive")              m_tube_drive_db = atof(v.c_str());
         else if (k == "bs2b.mode")               { m_bs2b_mode = atoi(v.c_str()); if (m_bs2b_mode < 0 || m_bs2b_mode > 5) m_bs2b_mode = 0; }
+        else if (k == "bs2b.feed")               { m_bs2b_feed = atof(v.c_str()); if (m_bs2b_feed < 1.0) m_bs2b_feed = 1.0; if (m_bs2b_feed > 15.0) m_bs2b_feed = 15.0; }
+        else if (k == "bs2b.freq")               { m_bs2b_fcut = atof(v.c_str()); if (m_bs2b_fcut < 300.0) m_bs2b_fcut = 300.0; if (m_bs2b_fcut > 2000.0) m_bs2b_fcut = 2000.0; }
         else if (k == "bassboost.gain")          m_bass_boost = atof(v.c_str());
         else if (k == "stereo.width")            m_stereo_width = atof(v.c_str());
         else if (k == "reverb.preset")           { m_reverb_preset = atoi(v.c_str()); if (m_reverb_preset < 0 || m_reverb_preset > 18) m_reverb_preset = 0; }
@@ -1404,6 +1422,10 @@ void JdspConfigDialog::InitEffectsTab(HWND hwnd) {
         for (int i = 0; i < 6; i++) SendMessageW(xf, CB_ADDSTRING, 0, (LPARAM)mode_names[i]);
         SendMessageW(xf, CB_SETCURSEL, m_bs2b_mode, 0);
     }
+    set_slider(IDC_SLIDER_BS2B_FEED, 10, 150, (int)(m_bs2b_feed * 10.0));
+    UpdateSliderLabel(tab, IDC_SLIDER_BS2B_FEED, IDC_STATIC_BS2B_FEED, L"%.1f dB", (float)m_bs2b_feed);
+    set_slider(IDC_SLIDER_BS2B_FCUT, 300, 2000, (int)m_bs2b_fcut);
+    UpdateSliderLabel(tab, IDC_SLIDER_BS2B_FCUT, IDC_STATIC_BS2B_FCUT, L"%.0f Hz", (float)m_bs2b_fcut);
 
     set_slider(IDC_SLIDER_OUTPUT_GAIN, -150, 150, (int)(m_output_gain * 10.0));
     UpdateSliderLabel(tab, IDC_SLIDER_OUTPUT_GAIN, IDC_STATIC_OUTPUT_GAIN, L"%.1f dB", (float)m_output_gain);
@@ -1437,6 +1459,8 @@ void JdspConfigDialog::ApplyEffectsTab(HWND hwnd) {
         int s = (int)SendMessageW(xf, CB_GETCURSEL, 0, 0);
         if (s >= 0 && s <= 5) m_bs2b_mode = s;
     }
+    m_bs2b_feed = get_pos(IDC_SLIDER_BS2B_FEED) / 10.0;
+    m_bs2b_fcut = (double)get_pos(IDC_SLIDER_BS2B_FCUT);
 }
 
 // ===== Convolver Tab =====

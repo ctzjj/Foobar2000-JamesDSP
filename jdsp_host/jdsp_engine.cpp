@@ -123,7 +123,8 @@ bool JdspEngine::Initialize(uint32_t sample_rate, uint32_t channels) {
     StereoEnhancementSetParam(jdsp, (float)(m_stereo_width / 100.0));
     LoadReverbPresetDefaults();
     ApplyReverb();
-    CrossfeedChangeMode(jdsp, m_bs2b_mode);
+    LoadBs2bModeDefaults();
+    ApplyCrossfeed();
     JamesDSPSetPostGain(jdsp, m_output_gain);
 
     m_initialized = true;
@@ -230,7 +231,44 @@ void JdspEngine::ApplyReverbScalars() {
     rv->bassb = (float)m_reverb_bass;
 }
 
-void JdspEngine::LoadReverbPresetDefaults() {    const JdspReverbParams& p =
+// Modes 0 and 1 are the BS2B algorithm, 2..5 use the built-in HRTF convolvers.
+// CrossfeedEnable() initialises both BS2B slots with the library's preset clevels
+// and CrossfeedChangeMode() wipes bs2b[] again, so the user's feed/cutoff are
+// written last, straight into the slot the active mode selects.
+void JdspEngine::ApplyCrossfeed() {
+    if (!m_jdsp) return;
+    JamesDSPLib* jdsp = JDSP(m_jdsp);
+
+    if (m_module_enabled[kModBs2b]) {
+        CrossfeedEnable(jdsp, 1);
+    } else {
+        CrossfeedDisable(jdsp);
+    }
+    CrossfeedChangeMode(jdsp, m_bs2b_mode);
+
+    if (m_bs2b_mode < 2) {
+        unsigned int fcut = (unsigned int)clamp_double(m_bs2b_fcut, 300.0, 2000.0);
+        unsigned int feed = (unsigned int)clamp_double(m_bs2b_feed * 10.0, 10.0, 150.0);
+        int flevel = BS2BCalculateflevel(fcut, feed);
+        BS2BInit(&jdsp->advXF.bs2b[m_bs2b_mode], (unsigned int)jdsp->fs, flevel);
+    }
+}
+
+// The library expresses BS2B level 1 / level 2 as two fixed clevels (CMOY and
+// JMEIER). Picking a mode loads that preset into the feed/cutoff parameters, which
+// the user can then adjust - mirroring how the reverb presets populate their sliders.
+void JdspEngine::LoadBs2bModeDefaults() {
+    if (m_bs2b_mode == 0) {          // BS2B_CMOY_CLEVEL   700 Hz / 6.0 dB
+        m_bs2b_fcut = 700.0;
+        m_bs2b_feed = 6.0;
+    } else if (m_bs2b_mode == 1) {   // BS2B_JMEIER_CLEVEL 650 Hz / 9.5 dB
+        m_bs2b_fcut = 650.0;
+        m_bs2b_feed = 9.5;
+    }
+}
+
+void JdspEngine::LoadReverbPresetDefaults() {
+    const JdspReverbParams& p =
         kJdspReverbPresets[clamp_int(m_reverb_preset, 0, JDSP_REVERB_PRESET_COUNT - 1)];
     m_reverb_wet = p.wet;
     m_reverb_dry = p.dry;
@@ -404,7 +442,7 @@ void JdspEngine::SetParam(const std::string& key, const std::string& value) {
     }
     else if (key == "modules.bs2b") {
         m_module_enabled[kModBs2b] = (iv != 0);
-        CrossfeedEnable(jdsp, m_module_enabled[kModBs2b]);
+        ApplyCrossfeed();
     }
     else if (key == "modules.ddc") {
         m_module_enabled[kModDdc] = (iv != 0);
@@ -453,7 +491,16 @@ void JdspEngine::SetParam(const std::string& key, const std::string& value) {
     // ---- crossfeed ----
     else if (key == "bs2b.mode") {
         m_bs2b_mode = clamp_int(iv, 0, 5);
-        CrossfeedChangeMode(jdsp, m_bs2b_mode);
+        LoadBs2bModeDefaults();
+        ApplyCrossfeed();
+    }
+    else if (key == "bs2b.feed") {
+        m_bs2b_feed = clamp_double(dv, 1.0, 15.0);
+        ApplyCrossfeed();
+    }
+    else if (key == "bs2b.freq") {
+        m_bs2b_fcut = clamp_double(dv, 300.0, 2000.0);
+        ApplyCrossfeed();
     }
 
     // ---- limiter ----

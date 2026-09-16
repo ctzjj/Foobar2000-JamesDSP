@@ -103,6 +103,11 @@
 #define IDC_SLIDER_REVERB_ER    1544
 #define IDC_STATIC_REVERB_ER    1545
 
+#define IDC_SLIDER_BS2B_FEED    1550
+#define IDC_STATIC_BS2B_FEED    1551
+#define IDC_SLIDER_BS2B_FCUT    1552
+#define IDC_STATIC_BS2B_FCUT    1553
+
 // Tab: Convolver
 #define IDD_TAB_CONVOLVER       1600
 #define IDC_CHK_CONV_ENABLE     1601
@@ -178,6 +183,9 @@
 #define IDL_FX_REVERB_PREDELAY  1886
 #define IDL_FX_REVERB_ER        1887
 #define IDL_FX_REVERB_HINT      1888
+
+#define IDL_FX_BS2B_FEED        1890
+#define IDL_FX_BS2B_FCUT        1891
 
 // Buttons
 #define IDOK                    1
