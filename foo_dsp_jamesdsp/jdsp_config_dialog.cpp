@@ -16,12 +16,6 @@ HMODULE GetMyModule();
 #define IDT_LIVE_PUSH 1
 #define JDSP_LIVE_PUSH_MS 80
 
-static FILE* g_cfg_log = NULL;
-void CfgLog(const char* msg) {
-    if (!g_cfg_log) g_cfg_log = fopen("jdsp_cfg.log", "a");
-    if (g_cfg_log) { fprintf(g_cfg_log, "%s\n", msg); fflush(g_cfg_log); }
-}
-
 #ifndef Button_SetCheck
 #define Button_SetCheck(hCtrl, uCheck) SendMessage((hCtrl), BM_SETCHECK, (WPARAM)(uCheck), 0)
 #endif
@@ -522,16 +516,6 @@ void JdspConfigDialog::OnCommand(HWND hwnd, WPARAM wParam, LPARAM lParam) {
         }
     } else if (id == IDC_BTN_RESET_ALL && code == BN_CLICKED) {
         m_suppress_notify = true;
-        {
-            int enabled = 0;
-            double eqsum = 0.0;
-            for (int i = 0; i < kDlgModCount; i++) if (m_modules[i]) enabled++;
-            for (int i = 0; i < JDSP_EQ_BANDS; i++) eqsum += m_eq_bands[i].gain;
-            char buf[256];
-            sprintf_s(buf, "ResetAll: BEFORE mods=%d eqsum=%.1f tube=%.1f out=%.1f rev=%d",
-                      enabled, eqsum, m_tube_drive_db, m_output_gain, m_reverb_preset);
-            CfgLog(buf);
-        }
         memset(m_modules, 0, sizeof(m_modules));
         for (int i = 0; i < JDSP_EQ_BANDS; i++) {
             m_eq_bands[i].enabled = true;
@@ -558,17 +542,6 @@ void JdspConfigDialog::OnCommand(HWND hwnd, WPARAM wParam, LPARAM lParam) {
         }
         m_ir_path[0] = L'\0'; m_ddc_profile[0] = L'\0'; m_spectrum_path[0] = L'\0';
         m_script_text[0] = L'\0';
-        CfgLog("ResetAll: resetting every parameter to its default");
-        {
-            int enabled = 0;
-            double eqsum = 0.0;
-            for (int i = 0; i < kDlgModCount; i++) if (m_modules[i]) enabled++;
-            for (int i = 0; i < JDSP_EQ_BANDS; i++) eqsum += m_eq_bands[i].gain;
-            char buf[256];
-            sprintf_s(buf, "ResetAll: state mods=%d eqsum=%.1f tube=%.1f out=%.1f rev=%d",
-                      enabled, eqsum, m_tube_drive_db, m_output_gain, m_reverb_preset);
-            CfgLog(buf);
-        }
         SetDlgItemTextW(m_tab_dialogs[4], IDC_EDIT_CONV_IR, L"");
         SetDlgItemTextW(m_tab_dialogs[2], IDC_EDIT_DDC_PROFILE, L"");
         SetDlgItemTextW(m_tab_dialogs[5], IDC_EDIT_SPECTRUM_FILE, L"");
@@ -580,26 +553,6 @@ void JdspConfigDialog::OnCommand(HWND hwnd, WPARAM wParam, LPARAM lParam) {
         InitConvolverTab(hwnd);
         InitSpectrumTab(hwnd);
         InitScriptTab(hwnd);
-        {
-            // Read the controls straight back: if these are not defaults the Init*
-            // calls are writing to different windows than the visible ones.
-            int recheck = 0;
-            for (int i = 0; i < kDlgModCount; i++) {
-                HWND c = m_tab_dialogs[0] ? GetDlgItem(m_tab_dialogs[0], kModuleCheckboxes[i]) : NULL;
-                if (c && Button_GetCheck(c) == BST_CHECKED) recheck++;
-            }
-            HWND sl0 = m_tab_dialogs[1] ? GetDlgItem(m_tab_dialogs[1], IDC_SLIDER_EQ_BAND0) : NULL;
-            HWND tl = m_tab_dialogs[3] ? GetDlgItem(m_tab_dialogs[3], IDC_SLIDER_TUBE_DRIVE) : NULL;
-            char b2[256];
-            sprintf_s(b2, "ResetAll: readback mods=%d slider0=%ld tube=%ld pages=%p/%p/%p/%p/%p/%p/%p",
-                      recheck,
-                      sl0 ? (long)SendMessageW(sl0, TBM_GETPOS, 0, 0) : -1L,
-                      tl ? (long)SendMessageW(tl, TBM_GETPOS, 0, 0) : -1L,
-                      (void*)m_tab_dialogs[0], (void*)m_tab_dialogs[1], (void*)m_tab_dialogs[2],
-                      (void*)m_tab_dialogs[3], (void*)m_tab_dialogs[4], (void*)m_tab_dialogs[5],
-                      (void*)m_tab_dialogs[6]);
-            CfgLog(b2);
-        }
         m_suppress_notify = false;
     } else if (id == IDC_BTN_EQ_RESET && code == BN_CLICKED) {
         m_suppress_notify = true;
@@ -939,35 +892,7 @@ void JdspConfigDialog::FlushLiveNow() {
     m_live_last_send_ms = GetTickCount64();
 
     if (!payload.empty()) {
-        bool sent = JdspSendToActive(payload);
-        static int s_live_n = 0;
-        if (s_live_n < 200) {
-            // Log the first few keys so the log shows exactly what changed.
-            std::string keys;
-            size_t pos = 0;
-            int shown = 0;
-            while (pos < payload.size() && shown < 6) {
-                size_t nl = payload.find('\n', pos);
-                if (nl == std::string::npos) nl = payload.size();
-                size_t eq = payload.find('=', pos);
-                size_t end = (eq != std::string::npos && eq < nl) ? eq : nl;
-                if (!keys.empty()) keys += ',';
-                keys.append(payload, pos, end - pos);
-                shown++;
-                pos = nl + 1;
-            }
-            char b[320];
-            sprintf_s(b, "live: n=%d bytes=%u active=%d keys=%s", s_live_n,
-                      (unsigned)payload.size(), (int)sent, keys.c_str());
-            CfgLog(b);
-            s_live_n++;
-        }
-    } else {
-        static int s_live_empty = 0;
-        if (s_live_empty < 40) {
-            CfgLog("live: no changes to send");
-            s_live_empty++;
-        }
+        JdspSendToActive(payload);
     }
 }
 

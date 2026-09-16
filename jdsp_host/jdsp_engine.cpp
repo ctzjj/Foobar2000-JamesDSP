@@ -273,8 +273,6 @@ bool JdspEngine::LoadImpulseResponse(const std::wstring& path) {
     // Loading does not turn the convolver on; only the module flag does that.
     if (m_module_enabled[kModConvolver]) Convolver1DEnable(jdsp);
     m_ir_path_last = path;
-    EngineLog("LoadImpulseResponse: ok (%u ch, %u frames)",
-           (unsigned)channels, (unsigned)frames);
     return true;
 }
 
@@ -303,7 +301,6 @@ bool JdspEngine::LoadDdcProfile(const std::wstring& path) {
     }
     if (m_module_enabled[kModDdc]) DDCEnable(jdsp, 1);
     m_ddc_path_last = path;
-    EngineLog("LoadDdcProfile: ok");
     return true;
 }
 
@@ -330,7 +327,6 @@ bool JdspEngine::LoadSpectrumProfile(const std::wstring& path) {
     ArbitraryResponseEqualizerStringParser(jdsp, &text[0]);
     if (m_module_enabled[kModSpectrum]) ArbitraryResponseEqualizerEnable(jdsp, 1);
     m_spectrum_path_last = path;
-    EngineLog("LoadSpectrumProfile: ok");
     return true;
 }
 
@@ -354,7 +350,6 @@ bool JdspEngine::LoadEelScript(const std::string& text) {
         return false;
     }
     if (m_module_enabled[kModEel2]) LiveProgEnable(jdsp);
-    EngineLog("LoadEelScript: ok");
     return true;
 }
 

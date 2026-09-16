@@ -3,8 +3,6 @@
 #include "resource.h"
 #include <cmath>
 
-extern void CfgLog(const char* msg);
-
 JdspEqWidget::JdspEqWidget() {
     // The library's default 15 point axis (multimodalEQ.c).
     static const float freqs[JDSP_EQ_BANDS] = { 25, 40, 63, 100, 160, 250, 400, 630,
@@ -66,7 +64,6 @@ LRESULT CALLBACK JdspEqWidget::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         CREATESTRUCT* cs = (CREATESTRUCT*)lParam;
         self = (JdspEqWidget*)cs->lpCreateParams;
         SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)self);
-        CfgLog("EqWidget: WM_CREATE");
         return 0;
     }
     self = (JdspEqWidget*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
@@ -74,14 +71,10 @@ LRESULT CALLBACK JdspEqWidget::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 
     switch (msg) {
     case WM_PAINT:
-        CfgLog("EqWidget: WM_PAINT begin");
         self->OnPaint(hwnd);
-        CfgLog("EqWidget: WM_PAINT end");
         return 0;
     case WM_LBUTTONDOWN:
-        CfgLog("EqWidget: WM_LBUTTONDOWN");
         self->OnLButtonDown(LOWORD(lParam), HIWORD(lParam));
-        CfgLog("EqWidget: WM_LBUTTONDOWN end");
         return 0;
     case WM_LBUTTONUP:
         self->OnLButtonUp();

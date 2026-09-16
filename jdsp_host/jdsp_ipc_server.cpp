@@ -3,7 +3,6 @@
 #include <cstdarg>
 #include <cstring>
 #include <string>
-#include <chrono>
 
 #ifdef _WIN32
 #include <io.h>
@@ -59,16 +58,14 @@ static bool WriteFull(int fd, const void* src, size_t n) {
 
 static bool ReadFrame(int fd, jdsp::FrameHeader& header, std::vector<uint8_t>& payload) {
     if (!ReadFull(fd, &header, sizeof(header))) {
-        SvrLog("ReadFrame: header read failed");
+        // Normal end of stream: the plugin has closed the pipe.
         return false;
     }
 
     payload.resize(header.data_length);
     if (header.data_length > 0) {
         if (!ReadFull(fd, payload.data(), header.data_length)) {
-            char buf[64];
-            sprintf_s(buf, "ReadFrame: payload read failed, len=%u", header.data_length);
-            SvrLog(buf);
+            SvrLog("ReadFrame: truncated payload");
             return false;
         }
     }
@@ -88,23 +85,11 @@ static bool WriteFrame(int fd, jdsp::FrameType type, const void* data, uint32_t 
 }
 
 bool JdspIpcServer::Run() {
-    SvrLog("Server::Run() entered");
     while (true) {
         jdsp::FrameHeader header;
         std::vector<uint8_t> payload;
 
-        if (!ReadFrame(FD_STDIN, header, payload)) {
-            SvrLog("Server: read failed, exiting loop");
-            break;
-        }
-
-        static long long s_frame_n = 0;
-        s_frame_n++;
-        bool log_frame = (s_frame_n <= 300 || s_frame_n % 50 == 0);
-        if (log_frame) {
-            SvrLog("R: n=%lld type=%u len=%u", s_frame_n, (unsigned)header.type,
-                   (unsigned)header.data_length);
-        }
+        if (!ReadFrame(FD_STDIN, header, payload)) break;
 
         switch (header.type) {
             case jdsp::FrameType::AUDIO_DATA: {
@@ -112,7 +97,6 @@ bool JdspIpcServer::Run() {
                 if (HandleAudioData(payload, response)) {
                     WriteFrame(FD_STDOUT, jdsp::FrameType::AUDIO_DATA,
                               response.data(), static_cast<uint32_t>(response.size()));
-                    if (log_frame) SvrLog("W: n=%lld len=%u", s_frame_n, (unsigned)response.size());
                 }
                 break;
             }
@@ -120,7 +104,6 @@ bool JdspIpcServer::Run() {
                 HandleSetParam(payload);
                 break;
             case jdsp::FrameType::SHUTDOWN:
-                SvrLog("Server: received shutdown");
                 return true;
             default:
                 break;
@@ -146,39 +129,8 @@ bool JdspIpcServer::HandleAudioData(const std::vector<uint8_t>& payload, std::ve
     float* resp_audio = reinterpret_cast<float*>(response.data() + sizeof(jdsp::AudioData));
     memcpy(resp_audio, audio, total_samples * sizeof(float));
 
-    static double s_proc_ms = 0.0;
-    static long long s_proc_n = 0;
-    static std::vector<float> s_orig;
-    s_orig.assign(resp_audio, resp_audio + total_samples);
-
-    auto t0 = std::chrono::steady_clock::now();
     m_engine.Process(resp_audio, hdr->sample_count, hdr->channels);
-    auto t1 = std::chrono::steady_clock::now();
-    double ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
-    s_proc_ms += ms;
-    s_proc_n++;
 
-    double maxd = 0.0;
-    long long mi = -1;
-    long long ndiff = 0;
-    double maxin = 0.0, maxout = 0.0;
-    for (size_t i = 0; i < total_samples; i++) {
-        double a = (double)s_orig[i]; if (a < 0) a = -a; if (a > maxin) maxin = a;
-        double b = (double)resp_audio[i]; if (b < 0) b = -b; if (b > maxout) maxout = b;
-        double d = (double)resp_audio[i] - (double)s_orig[i];
-        if (d < 0) d = -d;
-        if (d > 0.0) ndiff++;
-        if (d > maxd) { maxd = d; mi = (long long)i; }
-    }
-
-    if (s_proc_n <= 120 || s_proc_n % 10 == 0) {
-        char b[360];
-        sprintf_s(b, "PROC: n=%lld avg=%.3fms samples=%u pkin=%.4f pkout=%.4f maxdiff=%.6f ndiff=%lld modules=%d",
-                  s_proc_n, s_proc_ms / (double)s_proc_n,
-                  hdr->sample_count, maxin, maxout, maxd,
-                  ndiff, m_engine.AnyModuleEnabled() ? 1 : 0);
-        SvrLog(b);
-    }
     return true;
 }
 
@@ -203,25 +155,18 @@ static std::string UnescapeValue(const std::string& v) {
 }
 
 bool JdspIpcServer::HandleSetParam(const std::vector<uint8_t>& payload) {
-        std::string blob(payload.begin(), payload.end());
-        // Payload is one or more "key=value" entries separated by newlines.
-        static long long s_setparam_count = 0;
-        bool log_this = (s_setparam_count < 150);
-        s_setparam_count++;
-        // Log every key before applying it, so if a parameter makes the engine
-        // block the last logged key is the one responsible.
-        size_t pos = 0;
-        while (pos < blob.size()) {
-            size_t eol = blob.find('\n', pos);
-            if (eol == std::string::npos) eol = blob.size();
-            std::string line = blob.substr(pos, eol - pos);
-            pos = eol + 1;
-            if (line.empty()) continue;
-            size_t eq = line.find('=');
-            if (eq == std::string::npos) continue;
-            if (log_this) SvrLog("SP: %s", line.substr(0, eq).c_str());
-            m_engine.SetParam(line.substr(0, eq), UnescapeValue(line.substr(eq + 1)));
-        }
-        if (log_this) SvrLog("SP: done (%lld)", s_setparam_count);
-        return true;
+    std::string blob(payload.begin(), payload.end());
+    // Payload is one or more "key=value" entries separated by newlines.
+    size_t pos = 0;
+    while (pos < blob.size()) {
+        size_t eol = blob.find('\n', pos);
+        if (eol == std::string::npos) eol = blob.size();
+        std::string line = blob.substr(pos, eol - pos);
+        pos = eol + 1;
+        if (line.empty()) continue;
+        size_t eq = line.find('=');
+        if (eq == std::string::npos) continue;
+        m_engine.SetParam(line.substr(0, eq), UnescapeValue(line.substr(eq + 1)));
     }
+    return true;
+}
