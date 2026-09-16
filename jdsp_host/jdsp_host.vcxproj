@@ -157,10 +157,12 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="jdsp_engine.cpp" />
     <ClCompile Include="jdsp_ipc_server.cpp" />
+    <ClCompile Include="wav_loader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="jdsp_engine.h" />
     <ClInclude Include="jdsp_ipc_server.h" />
+    <ClInclude Include="wav_loader.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\jdspController.c">
