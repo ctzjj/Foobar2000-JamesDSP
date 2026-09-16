@@ -4,10 +4,25 @@
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
+#include <cstdarg>
 #include <cmath>
 
 extern "C" {
 #include "jdsp_header.h"
+}
+
+// stdout is the IPC pipe, so nothing may be written there outside the frame
+// protocol. All diagnostics go to the log file instead.
+extern FILE* g_log;
+
+static void EngineLog(const char* fmt, ...) {
+    if (!g_log) return;
+    va_list ap;
+    va_start(ap, fmt);
+    vfprintf(g_log, fmt, ap);
+    va_end(ap);
+    fputc('\n', g_log);
+    fflush(g_log);
 }
 
 static inline JamesDSPLib* JDSP(void* p) { return reinterpret_cast<JamesDSPLib*>(p); }
@@ -116,7 +131,7 @@ bool JdspEngine::LoadImpulseResponse(const std::wstring& path) {
     uint32_t channels = 0;
     uint32_t sample_rate = 0;
     if (!LoadWavInterleaved(path, samples, channels, sample_rate)) {
-        printf("LoadImpulseResponse: cannot read impulse response\n");
+        EngineLog("LoadImpulseResponse: cannot read impulse response");
         return false;
     }
     (void)sample_rate;
@@ -124,13 +139,13 @@ bool JdspEngine::LoadImpulseResponse(const std::wstring& path) {
     size_t frames = samples.size() / channels;
     int r = Convolver1DLoadImpulseResponse(jdsp, samples.data(), channels, frames, 1);
     if (!r) {
-        printf("LoadImpulseResponse: Convolver1DLoadImpulseResponse failed\n");
+        EngineLog("LoadImpulseResponse: Convolver1DLoadImpulseResponse failed");
         return false;
     }
     // Loading does not turn the convolver on; only the module flag does that.
     if (m_module_enabled[5]) Convolver1DEnable(jdsp);
     m_ir_path_last = path;
-    printf("LoadImpulseResponse: ok (%u ch, %u frames)\n",
+    EngineLog("LoadImpulseResponse: ok (%u ch, %u frames)",
            (unsigned)channels, (unsigned)frames);
     return true;
 }
@@ -148,19 +163,19 @@ bool JdspEngine::LoadDdcProfile(const std::wstring& path) {
 
     std::string text = ReadTextFile(path);
     if (text.empty()) {
-        printf("LoadDdcProfile: cannot read profile\n");
+        EngineLog("LoadDdcProfile: cannot read profile");
         return false;
     }
     text.push_back('\0');  // DDCStringParser takes a C string
 
     int r = DDCStringParser(jdsp, &text[0]);
     if (r < 0) {
-        printf("LoadDdcProfile: DDCStringParser failed\n");
+        EngineLog("LoadDdcProfile: DDCStringParser failed");
         return false;
     }
     if (m_module_enabled[2]) DDCEnable(jdsp, 1);
     m_ddc_path_last = path;
-    printf("LoadDdcProfile: ok\n");
+    EngineLog("LoadDdcProfile: ok");
     return true;
 }
 
@@ -180,11 +195,11 @@ bool JdspEngine::LoadEelScript(const std::string& text) {
     code.push_back('\0');
     int err = LiveProgStringParser(jdsp, &code[0]);
     if (err != 1) {
-        printf("LoadEelScript: %s\n", checkErrorCode(err));
+        EngineLog("LoadEelScript: %s", checkErrorCode(err));
         return false;
     }
     if (m_module_enabled[12]) LiveProgEnable(jdsp);
-    printf("LoadEelScript: ok\n");
+    EngineLog("LoadEelScript: ok");
     return true;
 }
 
