@@ -98,12 +98,21 @@ bool JdspIpcServer::Run() {
             break;
         }
 
+        static long long s_frame_n = 0;
+        s_frame_n++;
+        bool log_frame = (s_frame_n <= 300 || s_frame_n % 50 == 0);
+        if (log_frame) {
+            SvrLog("R: n=%lld type=%u len=%u", s_frame_n, (unsigned)header.type,
+                   (unsigned)header.data_length);
+        }
+
         switch (header.type) {
             case jdsp::FrameType::AUDIO_DATA: {
                 std::vector<uint8_t> response;
                 if (HandleAudioData(payload, response)) {
                     WriteFrame(FD_STDOUT, jdsp::FrameType::AUDIO_DATA,
                               response.data(), static_cast<uint32_t>(response.size()));
+                    if (log_frame) SvrLog("W: n=%lld len=%u", s_frame_n, (unsigned)response.size());
                 }
                 break;
             }
@@ -197,9 +206,10 @@ bool JdspIpcServer::HandleSetParam(const std::vector<uint8_t>& payload) {
         std::string blob(payload.begin(), payload.end());
         // Payload is one or more "key=value" entries separated by newlines.
         static long long s_setparam_count = 0;
-        bool log_this = (s_setparam_count < 400);
+        bool log_this = (s_setparam_count < 150);
         s_setparam_count++;
-        std::string logged;
+        // Log every key before applying it, so if a parameter makes the engine
+        // block the last logged key is the one responsible.
         size_t pos = 0;
         while (pos < blob.size()) {
             size_t eol = blob.find('\n', pos);
@@ -209,12 +219,9 @@ bool JdspIpcServer::HandleSetParam(const std::vector<uint8_t>& payload) {
             if (line.empty()) continue;
             size_t eq = line.find('=');
             if (eq == std::string::npos) continue;
-            if (log_this) {
-                if (!logged.empty()) logged += ' ';
-                logged += line.substr(0, eq);
-            }
+            if (log_this) SvrLog("SP: %s", line.substr(0, eq).c_str());
             m_engine.SetParam(line.substr(0, eq), UnescapeValue(line.substr(eq + 1)));
         }
-        if (log_this && !logged.empty()) SvrLog("SETPARAM: %s", logged.c_str());
+        if (log_this) SvrLog("SP: done (%lld)", s_setparam_count);
         return true;
     }

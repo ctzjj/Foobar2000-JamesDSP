@@ -153,9 +153,36 @@ void JdspEngine::UpdateLimiter() {
 void JdspEngine::ApplyEqualizer() {
     if (!m_jdsp) return;
     // MultimodalEqualizerAxisInterpolation clamps the gains to +-64 dB itself
-    // and expects exactly 15 frequency/gain pairs.
+    // and expects exactly 15 frequency/gain pairs. It also divides by the
+    // spacing between neighbouring points, so the axis it receives must be
+    // strictly increasing. Presets written by older builds carry arbitrary
+    // per-band frequencies (and the 15-band axis may then be out of order or
+    // contain duplicates), which makes the interpolation ill-formed, so hand it
+    // a stably sorted copy with the duplicates pushed apart.
+    double freq[kEqBands];
+    double gain[kEqBands];
+    int order[kEqBands];
+    for (int i = 0; i < kEqBands; i++) {
+        freq[i] = m_eq_freq[i];
+        gain[i] = m_eq_gain[i];
+        order[i] = i;
+    }
+    for (int i = 1; i < kEqBands; i++) {
+        int j = i;
+        while (j > 0 && freq[order[j - 1]] > freq[order[j]]) {
+            int t = order[j - 1];
+            order[j - 1] = order[j];
+            order[j] = t;
+            j--;
+        }
+    }
+    for (int i = 0; i < kEqBands; i++) {
+        freq[i] = m_eq_freq[order[i]];
+        gain[i] = m_eq_gain[order[i]];
+        if (i > 0 && freq[i] <= freq[i - 1]) freq[i] = freq[i - 1] + 1.0;
+    }
     MultimodalEqualizerAxisInterpolation(JDSP(m_jdsp), m_eq_interpolation, m_eq_filter_type,
-                                         m_eq_freq, m_eq_gain);
+                                         freq, gain);
 }
 
 void JdspEngine::ApplyCompressor() {

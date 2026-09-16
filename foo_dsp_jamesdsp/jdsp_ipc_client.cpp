@@ -3,6 +3,18 @@
 #include "jdsp_host_manager.h"
 #include <cstring>
 
+extern void CfgLog(const char* msg);
+
+// Temporary diagnostic: record which stage of a frame exchange failed.
+static void IpcStageLog(const char* stage) {
+    static int s_n = 0;
+    if (s_n >= 40) return;
+    s_n++;
+    char b[96];
+    sprintf_s(b, "ipc: fail stage=%s count=%d", stage, s_n);
+    CfgLog(b);
+}
+
 // How long the audio thread waits for a frame before giving up on it. The
 // worker keeps the request alive, so the stream stays in sync; the chunk is
 // simply played back untouched.
@@ -99,7 +111,9 @@ void JdspIpcClient::WorkerLoop() {
         // Parameters first: they are cheap and the next audio frame should
         // already reflect them.
         if (!params.empty()) {
-            WriteFrame(jdsp::FrameType::SET_PARAM, params.data(), (uint32_t)params.size());
+            if (!WriteFrame(jdsp::FrameType::SET_PARAM, params.data(), (uint32_t)params.size())) {
+                IpcStageLog("write-param");
+            }
         }
         if (shutdown) {
             WriteFrame(jdsp::FrameType::SHUTDOWN, nullptr, 0);
@@ -162,14 +176,15 @@ bool JdspIpcClient::DoAudioFrame(uint32_t sample_rate, uint32_t channels,
     }
 
     if (!WriteFrame(jdsp::FrameType::AUDIO_DATA, payload.data(), (uint32_t)payload.size())) {
+        IpcStageLog("write-audio");
         return false;
     }
 
     jdsp::FrameHeader rh;
     std::vector<uint8_t> rp;
-    if (!ReadFrame(hRead, rh, rp)) return false;
-    if (rh.type != jdsp::FrameType::AUDIO_DATA) return false;
-    if (rp.size() < sizeof(jdsp::AudioData) + data_size) return false;
+    if (!ReadFrame(hRead, rh, rp)) { IpcStageLog("read-response"); return false; }
+    if (rh.type != jdsp::FrameType::AUDIO_DATA) { IpcStageLog("bad-type"); return false; }
+    if (rp.size() < sizeof(jdsp::AudioData) + data_size) { IpcStageLog("short-response"); return false; }
 
     output.resize((size_t)sample_count * channels);
     if (data_size > 0) {
@@ -238,7 +253,7 @@ bool JdspIpcClient::SendAudioData(uint32_t sample_rate, uint32_t channels,
         // Timed out. Deliberately leave the request in flight: cancelling the
         // worker's read from this thread does nothing and would leave a stuck
         // reader that steals the next response.
-        if (GetTickCount64() >= deadline) return false;
+        if (GetTickCount64() >= deadline) { IpcStageLog("timeout"); return false; }
     }
 }
 

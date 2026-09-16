@@ -530,8 +530,20 @@ void JdspConfigDialog::OnCommand(HWND hwnd, WPARAM wParam, LPARAM lParam) {
         m_lim_threshold = -1.0; m_lim_release = 50.0;
         m_tube_drive_db = 3.0; m_bs2b_mode = 0; m_bass_boost = 6.0;
         m_stereo_width = 50.0; m_reverb_preset = 0; m_output_gain = 0.0;
+        {
+            const JdspReverbParams& p = kJdspReverbPresets[0];
+            m_reverb_wet = p.wet;
+            m_reverb_dry = p.dry;
+            m_reverb_width = p.width;
+            m_reverb_rt60 = p.rt60;
+            m_reverb_damp = p.damplpf;
+            m_reverb_bass = p.bassb;
+            m_reverb_predelay = p.delay;
+            m_reverb_er = p.ertolate;
+        }
         m_ir_path[0] = L'\0'; m_ddc_profile[0] = L'\0'; m_spectrum_path[0] = L'\0';
         m_script_text[0] = L'\0';
+        CfgLog("ResetAll: resetting every parameter to its default");
         SetDlgItemTextW(m_tab_dialogs[4], IDC_EDIT_CONV_IR, L"");
         SetDlgItemTextW(m_tab_dialogs[2], IDC_EDIT_DDC_PROFILE, L"");
         SetDlgItemTextW(m_tab_dialogs[5], IDC_EDIT_SPECTRUM_FILE, L"");
@@ -876,7 +888,15 @@ void JdspConfigDialog::FlushLiveNow() {
     m_live_last_send_ms = GetTickCount64();
 
     if (!payload.empty()) {
-        JdspSendToActive(payload);
+        bool sent = JdspSendToActive(payload);
+        static int s_live_n = 0;
+        if (s_live_n < 200) {
+            char b[128];
+            sprintf_s(b, "live: n=%d bytes=%u active=%d", s_live_n, (unsigned)payload.size(),
+                      (int)sent);
+            CfgLog(b);
+            s_live_n++;
+        }
     }
 }
 
@@ -1154,6 +1174,24 @@ void JdspConfigDialog::InitEqTab(HWND hwnd) {
             SendMessageW(combo, CB_ADDSTRING, 0, (LPARAM)buf);
         }
         SendMessageW(combo, CB_SETCURSEL, m_eq_widget.GetSelectedBand(), 0);
+    }
+
+    // Keep the freq/gain editors in step with the selected band. Without this the
+    // next ApplyEqTab would read the stale text back into m_eq_bands.
+    {
+        int sel = m_eq_widget.GetSelectedBand();
+        if (sel < 0 || sel >= JDSP_EQ_BANDS) sel = 0;
+        wchar_t buf[32];
+        HWND freq_e = GetDlgItem(tab, IDC_EDIT_EQ_FREQ);
+        HWND gain_e = GetDlgItem(tab, IDC_EDIT_EQ_GAIN);
+        if (freq_e) {
+            swprintf_s(buf, L"%.0f", m_eq_bands[sel].frequency);
+            SetTextIfChanged(freq_e, buf);
+        }
+        if (gain_e) {
+            swprintf_s(buf, L"%.1f", m_eq_bands[sel].gain);
+            SetTextIfChanged(gain_e, buf);
+        }
     }
 
     HWND ft = GetDlgItem(tab, IDC_COMBO_EQ_FILTERTYPE);
