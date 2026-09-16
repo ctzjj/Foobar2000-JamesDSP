@@ -10,6 +10,12 @@
 extern void EnsureEqClassRegistered();
 HMODULE GetMyModule();
 
+// Live parameter pushes are coalesced to at most one per this interval. Windows
+// generates WM_HSCROLL far faster than the host can absorb EQ rebuilds, and a
+// flooded pipe stalls the audio thread.
+#define IDT_LIVE_PUSH 1
+#define JDSP_LIVE_PUSH_MS 80
+
 static FILE* g_cfg_log = NULL;
 void CfgLog(const char* msg) {
     if (!g_cfg_log) g_cfg_log = fopen("jdsp_cfg.log", "a");
@@ -234,10 +240,20 @@ JdspConfigDialog::JdspConfigDialog(JdspIpcClient& ipc) : m_ipc(ipc) {
 bool JdspConfigDialog::Show(HWND parent) {
     m_live_blob = SerializeSettings();
     m_orig_blob = m_live_blob;
+    m_live_dirty = false;
+    m_live_pending_full = false;
+    m_live_pending_blob.clear();
+    m_live_last_send_ms = 0;
 
     INT_PTR r = DialogBoxParam(GetMyModule(),
                                MAKEINTRESOURCE(IDD_JDSP_CONFIG),
                                parent, DialogProc, reinterpret_cast<LPARAM>(this));
+
+    // The dialog window is gone, so any timer died with it; just drop the state.
+    m_live_timer = false;
+    m_live_dirty = false;
+    m_live_pending_full = false;
+    m_live_pending_blob.clear();
 
     if (r != IDOK) {
         m_live_blob = m_orig_blob;
@@ -272,6 +288,12 @@ INT_PTR CALLBACK JdspConfigDialog::DialogProc(HWND hwnd, UINT msg, WPARAM wParam
         case WM_HSCROLL:
             dlg->OnHScroll(hwnd, wParam, lParam);
             return TRUE;
+        case WM_TIMER:
+            if (wParam == IDT_LIVE_PUSH) {
+                dlg->FlushLiveNow();
+                return TRUE;
+            }
+            return FALSE;
         case WM_CLOSE:
             EndDialog(hwnd, IDCANCEL);
             return TRUE;
@@ -812,28 +834,50 @@ void JdspConfigDialog::PushLive(bool full) {
     m_in_live_push = true;
 
     SyncFromControls(m_hwnd);
-    std::string blob = SerializeSettings();
-
-    std::string payload;
-    if (full) {
-        payload = blob;
-    } else {
-        payload = DiffBlobs(m_live_blob, blob);
-    }
-    m_live_blob = blob;
-
-    if (!payload.empty()) {
-        bool ok = JdspSendToActive(payload);
-        static int s_push_log = 0;
-        if (s_push_log < 200) {
-            char msg[128];
-            sprintf_s(msg, "PushLive: bytes=%d active=%d", (int)payload.size(), ok ? 1 : 0);
-            CfgLog(msg);
-            s_push_log++;
-        }
-    }
+    m_live_pending_blob = SerializeSettings();
+    m_live_pending_full = m_live_pending_full || full;
+    m_live_dirty = true;
+    MaybeFlushLive();
 
     m_in_live_push = false;
+}
+
+void JdspConfigDialog::MaybeFlushLive() {
+    if (!m_live_dirty) return;
+    ULONGLONG now = GetTickCount64();
+    if (now - m_live_last_send_ms < JDSP_LIVE_PUSH_MS) {
+        // Too soon: coalesce. Dragging a slider would otherwise send a frame per
+        // WM_HSCROLL and swamp the host, which stalls audio.
+        if (!m_live_timer) {
+            SetTimer(m_hwnd, IDT_LIVE_PUSH, JDSP_LIVE_PUSH_MS, NULL);
+            m_live_timer = true;
+        }
+        return;
+    }
+    FlushLiveNow();
+}
+
+void JdspConfigDialog::FlushLiveNow() {
+    if (m_live_timer) {
+        KillTimer(m_hwnd, IDT_LIVE_PUSH);
+        m_live_timer = false;
+    }
+    if (!m_live_dirty) return;
+
+    std::string payload;
+    if (m_live_pending_full) {
+        payload = m_live_pending_blob;
+    } else {
+        payload = DiffBlobs(m_live_blob, m_live_pending_blob);
+    }
+    m_live_blob = m_live_pending_blob;
+    m_live_pending_full = false;
+    m_live_dirty = false;
+    m_live_last_send_ms = GetTickCount64();
+
+    if (!payload.empty()) {
+        JdspSendToActive(payload);
+    }
 }
 
 std::string JdspConfigDialog::SerializeSettings() const {

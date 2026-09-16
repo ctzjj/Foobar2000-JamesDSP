@@ -3,7 +3,14 @@
 #include "jdsp_host_manager.h"
 #include <cstring>
 
-static const DWORD IPC_TIMEOUT_MS = 3000;
+// How long the audio thread waits for a frame before giving up on it. The
+// worker keeps the request alive, so the stream stays in sync; the chunk is
+// simply played back untouched.
+static const DWORD IPC_TIMEOUT_MS = 1000;
+
+// If a frame has been outstanding for longer than this the host is considered
+// wedged and is terminated so the DSP layer can start a fresh one.
+static const ULONGLONG IPC_WEDGE_MS = 5000;
 
 // Pipes may transfer fewer bytes than requested; loop until complete.
 static bool WriteFull(HANDLE h, const void* src, DWORD n) {
@@ -28,12 +35,88 @@ static bool ReadFull(HANDLE h, void* dst, DWORD n) {
     return true;
 }
 
-JdspIpcClient::JdspIpcClient(JdspHostManager& manager) : m_manager(manager) {
-    InitializeCriticalSection(&m_write_cs);
+JdspIpcClient::JdspIpcClient(JdspHostManager& manager)
+    : m_manager(manager), m_worker(NULL), m_work_event(NULL), m_done_event(NULL),
+      m_stop(false), m_shutdown_pending(false), m_audio_pending(false),
+      m_req_rate(0), m_req_channels(0), m_req_count(0), m_result_ready(false),
+      m_result_ok(false), m_frame_started_ms(0) {
+    InitializeCriticalSection(&m_cs);
+    m_work_event = CreateEventW(NULL, FALSE, FALSE, NULL);
+    m_done_event = CreateEventW(NULL, FALSE, FALSE, NULL);
+    if (m_work_event && m_done_event) {
+        m_worker = CreateThread(NULL, 0, WorkerEntry, this, 0, NULL);
+    }
 }
 
 JdspIpcClient::~JdspIpcClient() {
-    DeleteCriticalSection(&m_write_cs);
+    if (m_worker) {
+        EnterCriticalSection(&m_cs);
+        m_stop = true;
+        LeaveCriticalSection(&m_cs);
+        SetEvent(m_work_event);
+        if (WaitForSingleObject(m_worker, 500) != WAIT_OBJECT_0) {
+            // Worker is blocked on the host; killing it closes the pipes.
+            m_manager.Stop();
+            WaitForSingleObject(m_worker, 1000);
+        }
+        CloseHandle(m_worker);
+        m_worker = NULL;
+    }
+    if (m_work_event) { CloseHandle(m_work_event); m_work_event = NULL; }
+    if (m_done_event) { CloseHandle(m_done_event); m_done_event = NULL; }
+    DeleteCriticalSection(&m_cs);
+}
+
+DWORD WINAPI JdspIpcClient::WorkerEntry(LPVOID param) {
+    static_cast<JdspIpcClient*>(param)->WorkerLoop();
+    return 0;
+}
+
+void JdspIpcClient::WorkerLoop() {
+    for (;;) {
+        WaitForSingleObject(m_work_event, INFINITE);
+
+        std::string params;
+        bool shutdown = false;
+        bool has_audio = false;
+        uint32_t rate = 0, channels = 0, count = 0;
+        std::vector<float> audio;
+
+        EnterCriticalSection(&m_cs);
+        if (m_stop) { LeaveCriticalSection(&m_cs); return; }
+        params.swap(m_param_blob);
+        shutdown = m_shutdown_pending;
+        m_shutdown_pending = false;
+        has_audio = m_audio_pending;
+        if (has_audio) {
+            rate = m_req_rate;
+            channels = m_req_channels;
+            count = m_req_count;
+            audio.swap(m_req_audio);
+        }
+        LeaveCriticalSection(&m_cs);
+
+        // Parameters first: they are cheap and the next audio frame should
+        // already reflect them.
+        if (!params.empty()) {
+            WriteFrame(jdsp::FrameType::SET_PARAM, params.data(), (uint32_t)params.size());
+        }
+        if (shutdown) {
+            WriteFrame(jdsp::FrameType::SHUTDOWN, nullptr, 0);
+        }
+
+        if (has_audio) {
+            std::vector<float> out;
+            bool ok = DoAudioFrame(rate, channels, count, audio, out);
+            EnterCriticalSection(&m_cs);
+            m_audio_pending = false;
+            m_result_ok = ok;
+            m_result_audio.swap(out);
+            m_result_ready = true;
+            LeaveCriticalSection(&m_cs);
+            SetEvent(m_done_event);
+        }
+    }
 }
 
 bool JdspIpcClient::WriteFrame(jdsp::FrameType type, const void* data, uint32_t length) {
@@ -44,158 +127,141 @@ bool JdspIpcClient::WriteFrame(jdsp::FrameType type, const void* data, uint32_t 
     header.type = type;
     header.data_length = length;
 
-    EnterCriticalSection(&m_write_cs);
     bool ok = WriteFull(hWrite, &header, sizeof(header));
     if (ok && data && length > 0) {
         ok = WriteFull(hWrite, data, length);
     }
-    LeaveCriticalSection(&m_write_cs);
     return ok;
 }
 
-struct IoThreadArgs {
-    HANDLE hRead;
-    HANDLE hWrite;
-    CRITICAL_SECTION* write_cs;
-    std::vector<uint8_t> write_buf;
-    jdsp::FrameType write_type;
-    bool write_only;
-    bool free_self;   // true = thread owns and frees args (fire-and-forget)
-    bool write_ok;
-    bool read_ok;
-    jdsp::FrameHeader read_header;
-    std::vector<uint8_t> read_payload;
-};
-
-// Thread does NOT free args unless free_self is set; the synchronous caller
-// (SendAudioData) frees it after joining to avoid a double-free / use-after-free.
-static void IoFinish(IoThreadArgs* a) { if (a->free_self) delete a; }
-
-static DWORD WINAPI IoThread(LPVOID param) {
-    IoThreadArgs* a = (IoThreadArgs*)param;
-
-    // Write
-    jdsp::FrameHeader wheader;
-    wheader.type = a->write_type;
-    wheader.data_length = static_cast<uint32_t>(a->write_buf.size());
-
-    EnterCriticalSection(a->write_cs);
-    bool wok = WriteFull(a->hWrite, &wheader, sizeof(wheader));
-    if (wok && !a->write_buf.empty()) {
-        wok = WriteFull(a->hWrite, a->write_buf.data(), (DWORD)a->write_buf.size());
+bool JdspIpcClient::ReadFrame(HANDLE hRead, jdsp::FrameHeader& header,
+                              std::vector<uint8_t>& payload) {
+    if (!ReadFull(hRead, &header, sizeof(header))) return false;
+    payload.resize(header.data_length);
+    if (header.data_length > 0) {
+        if (!ReadFull(hRead, payload.data(), header.data_length)) return false;
     }
-    LeaveCriticalSection(a->write_cs);
-
-    if (!wok) {
-        a->write_ok = false;
-        IoFinish(a);
-        return 0;
-    }
-    a->write_ok = true;
-
-    if (a->write_only) { IoFinish(a); return 0; }
-
-    // Read response
-    if (!ReadFull(a->hRead, &a->read_header, sizeof(a->read_header))) {
-        a->read_ok = false;
-        IoFinish(a);
-        return 0;
-    }
-
-    a->read_payload.resize(a->read_header.data_length);
-    if (a->read_header.data_length > 0) {
-        if (!ReadFull(a->hRead, a->read_payload.data(), a->read_header.data_length)) {
-            a->read_ok = false;
-            IoFinish(a);
-            return 0;
-        }
-    }
-    a->read_ok = true;
-    IoFinish(a);
-    return 0;
+    return true;
 }
 
-bool JdspIpcClient::SendAudioData(uint32_t sample_rate, uint32_t channels,
-                                   uint32_t sample_count, const float* audio,
-                                   float* output) {
+bool JdspIpcClient::DoAudioFrame(uint32_t sample_rate, uint32_t channels,
+                                 uint32_t sample_count, const std::vector<float>& input,
+                                 std::vector<float>& output) {
     HANDLE hRead = m_manager.GetStdoutRead();
     HANDLE hWrite = m_manager.GetStdinWrite();
     if (!hRead || !hWrite) return false;
 
     uint32_t data_size = sample_count * channels * sizeof(float);
-    uint32_t total_size = sizeof(jdsp::AudioData) + data_size;
-
-    std::vector<uint8_t> payload(total_size);
+    std::vector<uint8_t> payload(sizeof(jdsp::AudioData) + data_size);
     jdsp::AudioData* hdr = reinterpret_cast<jdsp::AudioData*>(payload.data());
     hdr->sample_rate = sample_rate;
     hdr->channels = channels;
     hdr->sample_count = sample_count;
-    memcpy(payload.data() + sizeof(jdsp::AudioData), audio, data_size);
+    if (data_size > 0) {
+        memcpy(payload.data() + sizeof(jdsp::AudioData), input.data(), data_size);
+    }
 
-    IoThreadArgs* args = new IoThreadArgs();
-    args->hRead = hRead;
-    args->hWrite = hWrite;
-    args->write_cs = &m_write_cs;
-    args->write_buf.resize(sizeof(jdsp::AudioData) + data_size);
-    memcpy(args->write_buf.data(), payload.data(), sizeof(jdsp::AudioData) + data_size);
-    args->write_type = jdsp::FrameType::AUDIO_DATA;
-    args->write_only = false;
-    args->free_self = false;
-    args->write_ok = false;
-    args->read_ok = false;
-
-    HANDLE hThread = CreateThread(NULL, 0, IoThread, args, 0, NULL);
-    if (!hThread) { delete args; return false; }
-
-    DWORD wait_result = WaitForSingleObject(hThread, IPC_TIMEOUT_MS);
-    if (wait_result == WAIT_TIMEOUT) {
-        CancelIo(hRead);
-        CancelIo(hWrite);
-        DWORD wr2 = WaitForSingleObject(hThread, 1000);
-        CloseHandle(hThread);
-        // Only free if the thread actually terminated; otherwise leak rather than corrupt.
-        if (wr2 == WAIT_OBJECT_0) delete args;
+    if (!WriteFrame(jdsp::FrameType::AUDIO_DATA, payload.data(), (uint32_t)payload.size())) {
         return false;
     }
 
-    CloseHandle(hThread);
+    jdsp::FrameHeader rh;
+    std::vector<uint8_t> rp;
+    if (!ReadFrame(hRead, rh, rp)) return false;
+    if (rh.type != jdsp::FrameType::AUDIO_DATA) return false;
+    if (rp.size() < sizeof(jdsp::AudioData) + data_size) return false;
 
-    bool ok = args->write_ok && args->read_ok &&
-              args->read_header.type == jdsp::FrameType::AUDIO_DATA &&
-              args->read_payload.size() >= sizeof(jdsp::AudioData) + data_size;
-    if (ok) {
-        memcpy(output, args->read_payload.data() + sizeof(jdsp::AudioData), data_size);
+    output.resize((size_t)sample_count * channels);
+    if (data_size > 0) {
+        memcpy(output.data(), rp.data() + sizeof(jdsp::AudioData), data_size);
     }
-    delete args;
-    return ok;
+    return true;
+}
+
+bool JdspIpcClient::SendAudioData(uint32_t sample_rate, uint32_t channels,
+                                  uint32_t sample_count, const float* audio,
+                                  float* output) {
+    size_t samples = (size_t)sample_count * channels;
+
+    EnterCriticalSection(&m_cs);
+    if (m_audio_pending) {
+        ULONGLONG started = m_frame_started_ms;
+        LeaveCriticalSection(&m_cs);
+        // The host is still busy with the previous frame. Pass this chunk
+        // through untouched rather than queueing more work; if it stays busy
+        // for too long, kill it so a fresh one can be started.
+        if (GetTickCount64() - started > IPC_WEDGE_MS) {
+            m_manager.Stop();
+        }
+        return false;
+    }
+
+    m_audio_pending = true;
+    m_req_rate = sample_rate;
+    m_req_channels = channels;
+    m_req_count = sample_count;
+    m_req_audio.assign(audio, audio + samples);
+    m_result_ready = false;
+    m_result_ok = false;
+    m_result_audio.clear();
+    m_frame_started_ms = GetTickCount64();
+    ResetEvent(m_done_event);
+    LeaveCriticalSection(&m_cs);
+
+    SetEvent(m_work_event);
+
+    ULONGLONG deadline = GetTickCount64() + IPC_TIMEOUT_MS;
+    for (;;) {
+        ULONGLONG now = GetTickCount64();
+        DWORD remain = (now < deadline) ? (DWORD)(deadline - now) : 0;
+        WaitForSingleObject(m_done_event, remain);
+
+        bool ready = false, ok = false;
+        EnterCriticalSection(&m_cs);
+        if (m_result_ready) {
+            ready = true;
+            ok = m_result_ok;
+            if (ok) {
+                if (m_result_audio.size() >= samples) {
+                    memcpy(output, m_result_audio.data(), samples * sizeof(float));
+                } else {
+                    ok = false;
+                }
+            }
+            m_result_ready = false;
+            m_result_audio.clear();
+        }
+        LeaveCriticalSection(&m_cs);
+
+        if (ready) return ok;
+
+        // Timed out. Deliberately leave the request in flight: cancelling the
+        // worker's read from this thread does nothing and would leave a stuck
+        // reader that steals the next response.
+        if (GetTickCount64() >= deadline) return false;
+    }
 }
 
 bool JdspIpcClient::SendSetParam(const std::string& key, const std::string& value) {
-    HANDLE hWrite = m_manager.GetStdinWrite();
-    if (!hWrite) return false;
-
-    std::string param = key + "=" + value;
-
-    IoThreadArgs* args = new IoThreadArgs();
-    args->hWrite = hWrite;
-    args->write_cs = &m_write_cs;
-    args->write_buf.assign(param.begin(), param.end());
-    args->write_type = jdsp::FrameType::SET_PARAM;
-    args->write_only = true;
-    args->free_self = true;
-    args->write_ok = false;
-
-    HANDLE hThread = CreateThread(NULL, 0, IoThread, args, 0, NULL);
-    if (!hThread) { delete args; return false; }
-    CloseHandle(hThread);
-    return true;
+    return SendSetParams(key + "=" + value);
 }
 
 bool JdspIpcClient::SendSetParams(const std::string& blob) {
     if (blob.empty()) return false;
-    return WriteFrame(jdsp::FrameType::SET_PARAM, blob.data(), (uint32_t)blob.size());
+    EnterCriticalSection(&m_cs);
+    if (!m_param_blob.empty()) m_param_blob += '\n';
+    m_param_blob += blob;
+    LeaveCriticalSection(&m_cs);
+    SetEvent(m_work_event);
+    return true;
 }
 
 bool JdspIpcClient::SendShutdown() {
-    return WriteFrame(jdsp::FrameType::SHUTDOWN, nullptr, 0);
+    EnterCriticalSection(&m_cs);
+    m_shutdown_pending = true;
+    LeaveCriticalSection(&m_cs);
+    SetEvent(m_work_event);
+    // Give the worker a moment to push the frame out before the pipes close.
+    Sleep(50);
+    return true;
 }

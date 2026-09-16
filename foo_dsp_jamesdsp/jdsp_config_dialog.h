@@ -57,6 +57,8 @@ private:
     void OnApply(HWND hwnd);
     void SyncFromControls(HWND hwnd);
     void PushLive(bool full = false);
+    void MaybeFlushLive();
+    void FlushLiveNow();
     void OnHScroll(HWND hwnd, WPARAM wParam, LPARAM lParam);
     void OnLanguageChange(HWND hwnd);
     void SwitchLanguage(int lang_id);
@@ -133,4 +135,12 @@ private:
     std::string m_live_blob;   // last blob successfully derived from the controls
     std::string m_orig_blob;   // blob captured when the dialog opened (cancel revert)
     bool m_in_live_push = false;  // guards the live-push feedback loop
+
+    // Coalescing state for live pushes: changes accumulate here and are flushed
+    // at most once per JDSP_LIVE_PUSH_MS.
+    std::string m_live_pending_blob;
+    bool m_live_pending_full = false;
+    bool m_live_dirty = false;
+    bool m_live_timer = false;
+    ULONGLONG m_live_last_send_ms = 0;
 };
