@@ -37,7 +37,7 @@ New translation unit `foo_dsp_jamesdsp/jdsp_live_link.h` / `.cpp`:
 ```cpp
 void JdspSetActiveClient(JdspIpcClient* client);
 void JdspClearActiveClient(JdspIpcClient* client);  // only clears if it matches
-JdspIpcClient* JdspGetActiveClient();
+bool JdspSendToActive(const std::string& blob);     // safe, locked push
 ```
 
 - `jdsp_dsp::EnsureHostRunning()` registers `&m_ipc_client` after a successful host
@@ -46,10 +46,11 @@ JdspIpcClient* JdspGetActiveClient();
   compares before clearing so a newer instance is never clobbered by an older one
   being destroyed. The dialog runs on the UI thread while destruction can happen on
   the playback thread, so the pointer access must be serialized.
-- Any client obtained from `JdspGetActiveClient()` is only used for the duration of a
-  single `SendSetParams()` call. It is not reference counted; a torn-down client can
-  therefore be observed at worst for one push, which the existing 3 s write timeout
-  already tolerates.
+- Nothing outside the registry ever holds the raw pointer. Callers push through
+  `JdspSendToActive()`, which takes the lock, sends, and releases. `JdspClearActiveClient`
+  takes the same lock, so a `jdsp_dsp` cannot be destroyed while a push is in flight —
+  this is why the earlier `JdspGetActiveClient()` idea was dropped: returning a raw
+  pointer would leave a use-after-free window between get and send.
 
 ### 2. Write serialization in `JdspIpcClient`
 
@@ -76,13 +77,13 @@ void JdspConfigDialog::PushLive(bool full = false);
 
 Behavior:
 
-1. `JdspIpcClient* c = JdspGetActiveClient(); if (!c) return;`
-2. `SyncFromControls(m_hwnd);` (already idempotent and safe to call repeatedly)
-3. `std::string blob = SerializeSettings();`
-4. If `full`, send `blob` as one `SET_PARAM` frame via `SendSetParams`.
-   Otherwise compute a **key-based** diff against `m_live_blob` and send only the
-   `key=value` lines whose key is new or whose value changed, joined with `\n`.
-5. `m_live_blob = blob;`
+1. `SyncFromControls(m_hwnd);` (already idempotent and safe to call repeatedly)
+2. `std::string blob = SerializeSettings();`
+3. If `full`, the payload is `blob`. Otherwise it is the **key-based** diff against
+   `m_live_blob`: the `key=value` lines whose key is new or whose value changed, plus
+   `key=` for keys that existed before and are now gone. Lines joined with `\n`.
+4. `m_live_blob = blob;`
+5. `if (!payload.empty()) JdspSendToActive(payload);` — a no-op when no host is running.
 
 The diff splits each blob line at the first `=` into key and value. `SerializeSettings()`
 emits a fixed ordering, so the diff is stable.
@@ -162,8 +163,7 @@ slider moves
      -> SyncFromControls()
      -> SerializeSettings()
      -> key diff vs m_live_blob
-     -> JdspGetActiveClient()
-     -> SendSetParams(diff)  --\
+     -> JdspSendToActive(diff)  --\
                                 \  (pipe write mutex)
                                  -> SET_PARAM frame -> host SetParam()
                                                        engine state updated
