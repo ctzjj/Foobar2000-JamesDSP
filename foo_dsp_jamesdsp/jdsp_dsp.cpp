@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "jdsp_dsp.h"
 #include "jdsp_config_dialog.h"
+#include "jdsp_live_link.h"
 #include <cstdio>
 #include <chrono>
 
@@ -43,6 +44,7 @@ void jdsp_dsp::ApplyPresetToHost() {
 }
 
 jdsp_dsp::~jdsp_dsp() {
+    JdspClearActiveClient(&m_ipc_client);
     if (m_host_started) {
         CfgLog("jdsp_dsp: destroying -> shutdown host");
         m_ipc_client.SendShutdown();
@@ -75,6 +77,7 @@ bool jdsp_dsp::EnsureHostRunning() {
     m_host_started = true;
     CfgLog("EnsureHostRunning: host STARTED");
     ApplyPresetToHost();
+    JdspSetActiveClient(&m_ipc_client);
     return true;
 }
 

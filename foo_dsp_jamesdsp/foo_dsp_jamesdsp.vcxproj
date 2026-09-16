@@ -176,6 +176,7 @@
     <ClCompile Include="jdsp_dsp.cpp" />
     <ClCompile Include="jdsp_host_manager.cpp" />
     <ClCompile Include="jdsp_ipc_client.cpp" />
+    <ClCompile Include="jdsp_live_link.cpp" />
     <ClCompile Include="jdsp_config_dialog.cpp" />
     <ClCompile Include="jdsp_eq_widget.cpp" />
     <ClCompile Include="jdsp_config_serializer.cpp" />
@@ -189,6 +190,7 @@
     <ClInclude Include="jdsp_dsp.h" />
     <ClInclude Include="jdsp_host_manager.h" />
     <ClInclude Include="jdsp_ipc_client.h" />
+    <ClInclude Include="jdsp_live_link.h" />
     <ClInclude Include="jdsp_config_dialog.h" />
     <ClInclude Include="jdsp_eq_widget.h" />
     <ClInclude Include="resource.h" />
