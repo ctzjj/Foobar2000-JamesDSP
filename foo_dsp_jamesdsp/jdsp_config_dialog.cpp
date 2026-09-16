@@ -435,6 +435,8 @@ void JdspConfigDialog::OnCommand(HWND hwnd, WPARAM wParam, LPARAM lParam) {
     WORD id = LOWORD(wParam);
     WORD code = HIWORD(wParam);
 
+    if (m_suppress_notify) return;
+
     if (id == IDOK) {
         OnApply(hwnd);
         EndDialog(hwnd, IDOK);
@@ -499,6 +501,7 @@ void JdspConfigDialog::OnCommand(HWND hwnd, WPARAM wParam, LPARAM lParam) {
         ofn.lpstrDefExt = L"jdsp";
         ofn.Flags = OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
         if (GetOpenFileNameW(&ofn)) {
+            m_suppress_notify = true;
             JdspConfig::LoadFromFile(path, *this);
             HWND lang = GetDlgItem(hwnd, IDC_COMBO_LANGUAGE);
             if (lang) SendMessageW(lang, CB_SETCURSEL, m_current_lang, 0);
@@ -515,8 +518,20 @@ void JdspConfigDialog::OnCommand(HWND hwnd, WPARAM wParam, LPARAM lParam) {
             InitConvolverTab(hwnd);
             InitSpectrumTab(hwnd);
             InitScriptTab(hwnd);
+            m_suppress_notify = false;
         }
     } else if (id == IDC_BTN_RESET_ALL && code == BN_CLICKED) {
+        m_suppress_notify = true;
+        {
+            int enabled = 0;
+            double eqsum = 0.0;
+            for (int i = 0; i < kDlgModCount; i++) if (m_modules[i]) enabled++;
+            for (int i = 0; i < JDSP_EQ_BANDS; i++) eqsum += m_eq_bands[i].gain;
+            char buf[256];
+            sprintf_s(buf, "ResetAll: BEFORE mods=%d eqsum=%.1f tube=%.1f out=%.1f rev=%d",
+                      enabled, eqsum, m_tube_drive_db, m_output_gain, m_reverb_preset);
+            CfgLog(buf);
+        }
         memset(m_modules, 0, sizeof(m_modules));
         for (int i = 0; i < JDSP_EQ_BANDS; i++) {
             m_eq_bands[i].enabled = true;
@@ -544,6 +559,16 @@ void JdspConfigDialog::OnCommand(HWND hwnd, WPARAM wParam, LPARAM lParam) {
         m_ir_path[0] = L'\0'; m_ddc_profile[0] = L'\0'; m_spectrum_path[0] = L'\0';
         m_script_text[0] = L'\0';
         CfgLog("ResetAll: resetting every parameter to its default");
+        {
+            int enabled = 0;
+            double eqsum = 0.0;
+            for (int i = 0; i < kDlgModCount; i++) if (m_modules[i]) enabled++;
+            for (int i = 0; i < JDSP_EQ_BANDS; i++) eqsum += m_eq_bands[i].gain;
+            char buf[256];
+            sprintf_s(buf, "ResetAll: state mods=%d eqsum=%.1f tube=%.1f out=%.1f rev=%d",
+                      enabled, eqsum, m_tube_drive_db, m_output_gain, m_reverb_preset);
+            CfgLog(buf);
+        }
         SetDlgItemTextW(m_tab_dialogs[4], IDC_EDIT_CONV_IR, L"");
         SetDlgItemTextW(m_tab_dialogs[2], IDC_EDIT_DDC_PROFILE, L"");
         SetDlgItemTextW(m_tab_dialogs[5], IDC_EDIT_SPECTRUM_FILE, L"");
@@ -555,7 +580,29 @@ void JdspConfigDialog::OnCommand(HWND hwnd, WPARAM wParam, LPARAM lParam) {
         InitConvolverTab(hwnd);
         InitSpectrumTab(hwnd);
         InitScriptTab(hwnd);
+        {
+            // Read the controls straight back: if these are not defaults the Init*
+            // calls are writing to different windows than the visible ones.
+            int recheck = 0;
+            for (int i = 0; i < kDlgModCount; i++) {
+                HWND c = m_tab_dialogs[0] ? GetDlgItem(m_tab_dialogs[0], kModuleCheckboxes[i]) : NULL;
+                if (c && Button_GetCheck(c) == BST_CHECKED) recheck++;
+            }
+            HWND sl0 = m_tab_dialogs[1] ? GetDlgItem(m_tab_dialogs[1], IDC_SLIDER_EQ_BAND0) : NULL;
+            HWND tl = m_tab_dialogs[3] ? GetDlgItem(m_tab_dialogs[3], IDC_SLIDER_TUBE_DRIVE) : NULL;
+            char b2[256];
+            sprintf_s(b2, "ResetAll: readback mods=%d slider0=%ld tube=%ld pages=%p/%p/%p/%p/%p/%p/%p",
+                      recheck,
+                      sl0 ? (long)SendMessageW(sl0, TBM_GETPOS, 0, 0) : -1L,
+                      tl ? (long)SendMessageW(tl, TBM_GETPOS, 0, 0) : -1L,
+                      (void*)m_tab_dialogs[0], (void*)m_tab_dialogs[1], (void*)m_tab_dialogs[2],
+                      (void*)m_tab_dialogs[3], (void*)m_tab_dialogs[4], (void*)m_tab_dialogs[5],
+                      (void*)m_tab_dialogs[6]);
+            CfgLog(b2);
+        }
+        m_suppress_notify = false;
     } else if (id == IDC_BTN_EQ_RESET && code == BN_CLICKED) {
+        m_suppress_notify = true;
         for (int i = 0; i < JDSP_EQ_BANDS; i++) {
             m_eq_bands[i].enabled = true;
             m_eq_bands[i].gain = 0.0f;
@@ -574,6 +621,7 @@ void JdspConfigDialog::OnCommand(HWND hwnd, WPARAM wParam, LPARAM lParam) {
             if (freq_e) { swprintf_s(buf, L"%.0f", b.frequency); SetTextIfChanged(freq_e, buf); }
             if (gain_e) { swprintf_s(buf, L"%.1f", b.gain); SetTextIfChanged(gain_e, buf); }
         }
+        m_suppress_notify = false;
     } else if ((id == IDC_EDIT_EQ_FREQ || id == IDC_EDIT_EQ_GAIN) && code == EN_KILLFOCUS) {
         HWND tab = m_tab_dialogs[1];
         if (tab) {
@@ -640,7 +688,8 @@ void JdspConfigDialog::OnCommand(HWND hwnd, WPARAM wParam, LPARAM lParam) {
     // Text edits commit on EN_KILLFOCUS. Pushing on the intermediate EN_CHANGE /
     // EN_UPDATE notifications would clamp the value while the user is still typing.
     if ((id == IDC_EDIT_EQ_FREQ || id == IDC_EDIT_EQ_GAIN ||
-         id == IDC_EDIT_DDC_PROFILE || id == IDC_EDIT_SCRIPT) &&
+         id == IDC_EDIT_DDC_PROFILE || id == IDC_EDIT_SCRIPT ||
+         id == IDC_EDIT_CONV_IR || id == IDC_EDIT_SPECTRUM_FILE) &&
         (code == EN_CHANGE || code == EN_UPDATE)) {
         return;
     }
@@ -649,6 +698,7 @@ void JdspConfigDialog::OnCommand(HWND hwnd, WPARAM wParam, LPARAM lParam) {
 }
 
 void JdspConfigDialog::OnNotify(HWND hwnd, WPARAM wParam, LPARAM lParam) {
+    if (m_suppress_notify) return;
     NMHDR* nmhdr = reinterpret_cast<NMHDR*>(lParam);
     if (nmhdr->idFrom == IDC_TAB_MAIN && nmhdr->code == TCN_SELCHANGE) {
         int sel = TabCtrl_GetCurSel(GetDlgItem(hwnd, IDC_TAB_MAIN));
@@ -690,6 +740,7 @@ void JdspConfigDialog::UpdateSliderLabel(HWND tab, int slider_id, int label_id, 
 }
 
 void JdspConfigDialog::OnHScroll(HWND hwnd, WPARAM wParam, LPARAM lParam) {
+    if (m_suppress_notify) return;
     HWND slider = reinterpret_cast<HWND>(lParam);
     int pos = (int)SendMessageW(slider, TBM_GETPOS, 0, 0);
     HWND tab = GetParent(slider);
@@ -891,11 +942,31 @@ void JdspConfigDialog::FlushLiveNow() {
         bool sent = JdspSendToActive(payload);
         static int s_live_n = 0;
         if (s_live_n < 200) {
-            char b[128];
-            sprintf_s(b, "live: n=%d bytes=%u active=%d", s_live_n, (unsigned)payload.size(),
-                      (int)sent);
+            // Log the first few keys so the log shows exactly what changed.
+            std::string keys;
+            size_t pos = 0;
+            int shown = 0;
+            while (pos < payload.size() && shown < 6) {
+                size_t nl = payload.find('\n', pos);
+                if (nl == std::string::npos) nl = payload.size();
+                size_t eq = payload.find('=', pos);
+                size_t end = (eq != std::string::npos && eq < nl) ? eq : nl;
+                if (!keys.empty()) keys += ',';
+                keys.append(payload, pos, end - pos);
+                shown++;
+                pos = nl + 1;
+            }
+            char b[320];
+            sprintf_s(b, "live: n=%d bytes=%u active=%d keys=%s", s_live_n,
+                      (unsigned)payload.size(), (int)sent, keys.c_str());
             CfgLog(b);
             s_live_n++;
+        }
+    } else {
+        static int s_live_empty = 0;
+        if (s_live_empty < 40) {
+            CfgLog("live: no changes to send");
+            s_live_empty++;
         }
     }
 }

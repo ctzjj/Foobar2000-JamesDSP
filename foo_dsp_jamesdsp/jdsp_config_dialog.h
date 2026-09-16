@@ -135,6 +135,10 @@ private:
     std::string m_live_blob;   // last blob successfully derived from the controls
     std::string m_orig_blob;   // blob captured when the dialog opened (cancel revert)
     bool m_in_live_push = false;  // guards the live-push feedback loop
+    // Set while a handler refreshes the controls programmatically. Setting control
+    // text or positions fires EN_CHANGE / WM_HSCROLL, and those nested notifications
+    // would read the not-yet-updated controls back into the model.
+    bool m_suppress_notify = false;
 
     // Coalescing state for live pushes: changes accumulate here and are flushed
     // at most once per JDSP_LIVE_PUSH_MS.
