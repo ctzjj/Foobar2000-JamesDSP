@@ -28,7 +28,13 @@ static bool ReadFull(HANDLE h, void* dst, DWORD n) {
     return true;
 }
 
-JdspIpcClient::JdspIpcClient(JdspHostManager& manager) : m_manager(manager) {}
+JdspIpcClient::JdspIpcClient(JdspHostManager& manager) : m_manager(manager) {
+    InitializeCriticalSection(&m_write_cs);
+}
+
+JdspIpcClient::~JdspIpcClient() {
+    DeleteCriticalSection(&m_write_cs);
+}
 
 bool JdspIpcClient::WriteFrame(jdsp::FrameType type, const void* data, uint32_t length) {
     HANDLE hWrite = m_manager.GetStdinWrite();
@@ -38,16 +44,19 @@ bool JdspIpcClient::WriteFrame(jdsp::FrameType type, const void* data, uint32_t 
     header.type = type;
     header.data_length = length;
 
-    if (!WriteFull(hWrite, &header, sizeof(header))) return false;
-    if (data && length > 0) {
-        if (!WriteFull(hWrite, data, length)) return false;
+    EnterCriticalSection(&m_write_cs);
+    bool ok = WriteFull(hWrite, &header, sizeof(header));
+    if (ok && data && length > 0) {
+        ok = WriteFull(hWrite, data, length);
     }
-    return true;
+    LeaveCriticalSection(&m_write_cs);
+    return ok;
 }
 
 struct IoThreadArgs {
     HANDLE hRead;
     HANDLE hWrite;
+    CRITICAL_SECTION* write_cs;
     std::vector<uint8_t> write_buf;
     jdsp::FrameType write_type;
     bool write_only;
@@ -70,17 +79,17 @@ static DWORD WINAPI IoThread(LPVOID param) {
     wheader.type = a->write_type;
     wheader.data_length = static_cast<uint32_t>(a->write_buf.size());
 
-    if (!WriteFull(a->hWrite, &wheader, sizeof(wheader))) {
+    EnterCriticalSection(a->write_cs);
+    bool wok = WriteFull(a->hWrite, &wheader, sizeof(wheader));
+    if (wok && !a->write_buf.empty()) {
+        wok = WriteFull(a->hWrite, a->write_buf.data(), (DWORD)a->write_buf.size());
+    }
+    LeaveCriticalSection(a->write_cs);
+
+    if (!wok) {
         a->write_ok = false;
         IoFinish(a);
         return 0;
-    }
-    if (!a->write_buf.empty()) {
-        if (!WriteFull(a->hWrite, a->write_buf.data(), (DWORD)a->write_buf.size())) {
-            a->write_ok = false;
-            IoFinish(a);
-            return 0;
-        }
     }
     a->write_ok = true;
 
@@ -126,6 +135,7 @@ bool JdspIpcClient::SendAudioData(uint32_t sample_rate, uint32_t channels,
     IoThreadArgs* args = new IoThreadArgs();
     args->hRead = hRead;
     args->hWrite = hWrite;
+    args->write_cs = &m_write_cs;
     args->write_buf.resize(sizeof(jdsp::AudioData) + data_size);
     memcpy(args->write_buf.data(), payload.data(), sizeof(jdsp::AudioData) + data_size);
     args->write_type = jdsp::FrameType::AUDIO_DATA;
@@ -168,6 +178,7 @@ bool JdspIpcClient::SendSetParam(const std::string& key, const std::string& valu
 
     IoThreadArgs* args = new IoThreadArgs();
     args->hWrite = hWrite;
+    args->write_cs = &m_write_cs;
     args->write_buf.assign(param.begin(), param.end());
     args->write_type = jdsp::FrameType::SET_PARAM;
     args->write_only = true;

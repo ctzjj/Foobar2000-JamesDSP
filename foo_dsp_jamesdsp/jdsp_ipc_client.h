@@ -1,4 +1,5 @@
 #pragma once
+#include <windows.h>
 #include <cstdint>
 #include <vector>
 #include <string>
@@ -7,6 +8,7 @@
 class JdspIpcClient {
 public:
     JdspIpcClient(class JdspHostManager& manager);
+    ~JdspIpcClient();
 
     bool SendAudioData(uint32_t sample_rate, uint32_t channels,
                        uint32_t sample_count, const float* audio,
@@ -21,4 +23,8 @@ private:
     bool ReadFrameWithTimeout(jdsp::FrameHeader& header, std::vector<uint8_t>& payload);
 
     JdspHostManager& m_manager;
+    // Held only around the bytes of a single frame. Never held across a read:
+    // only SendAudioData issues AUDIO_DATA frames and it is called from one
+    // thread, so responses stay paired with their request without the lock.
+    CRITICAL_SECTION m_write_cs;
 };
