@@ -56,6 +56,59 @@
     <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
     <IntDir>$(Configuration)\</IntDir>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Platform)'=='x64'">
+    <OutDir>$(SolutionDir)x64\$(Configuration)\</OutDir>
+    <IntDir>x64\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)\libjamesdsp\jni\jamesdsp;$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp;$(SolutionDir)\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;NSEEL_ATL_CALLING_CONV=;HAVE_STDBOOL_H=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Console</SubSystem>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <TargetMachine>MachineX86</TargetMachine>
+      <AdditionalDependencies>winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>copy "$(TargetPath)" "$(SolutionDir)components\"</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)\libjamesdsp\jni\jamesdsp;$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp;$(SolutionDir)\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;NSEEL_ATL_CALLING_CONV=;HAVE_STDBOOL_H=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <SubSystem>Console</SubSystem>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <AdditionalDependencies>winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <PostBuildEvent>
+      <Command>copy "$(TargetPath)" "$(SolutionDir)components\"</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
@@ -63,13 +116,16 @@
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>$(SolutionDir)\libjamesdsp\jni\jamesdsp;$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp;$(SolutionDir)\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)\libjamesdsp\jni\jamesdsp;$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp;$(SolutionDir)\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;NSEEL_ATL_CALLING_CONV=;HAVE_STDBOOL_H=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
+      <AdditionalDependencies>winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>copy "$(TargetPath)" "$(SolutionDir)components\"</Command>
@@ -82,52 +138,16 @@
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>$(SolutionDir)\libjamesdsp\jni\jamesdsp;$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp;$(SolutionDir)\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir);$(SolutionDir)\libjamesdsp\jni\jamesdsp;$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp;$(SolutionDir)\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;NSEEL_ATL_CALLING_CONV=;HAVE_STDBOOL_H=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
-    </Link>
-    <PostBuildEvent>
-      <Command>copy "$(TargetPath)" "$(SolutionDir)components\"</Command>
-    </PostBuildEvent>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <ClCompile>
-      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
-      <WarningLevel>Level3</WarningLevel>
-      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>$(SolutionDir)\libjamesdsp\jni\jamesdsp;$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp;$(SolutionDir)\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <LanguageStandard>stdcpp17</LanguageStandard>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
-    <Link>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      <SubSystem>Console</SubSystem>
-      <OptimizeReferences>true</OptimizeReferences>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <TargetMachine>MachineX86</TargetMachine>
-    </Link>
-    <PostBuildEvent>
-      <Command>copy "$(TargetPath)" "$(SolutionDir)components\"</Command>
-    </PostBuildEvent>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <ClCompile>
-      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
-      <WarningLevel>Level3</WarningLevel>
-      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalIncludeDirectories>$(SolutionDir)\libjamesdsp\jni\jamesdsp;$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp;$(SolutionDir)\shared;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <LanguageStandard>stdcpp17</LanguageStandard>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
-    <Link>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-      <SubSystem>Console</SubSystem>
-      <OptimizeReferences>true</OptimizeReferences>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <AdditionalDependencies>winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>copy "$(TargetPath)" "$(SolutionDir)components\"</Command>
@@ -141,6 +161,346 @@
   <ItemGroup>
     <ClInclude Include="jdsp_engine.h" />
     <ClInclude Include="jdsp_ipc_server.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\jdspController.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\binaryBlobs.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\cpthread.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\vacuumTube.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\stereoEnhancement.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\reverb.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\multimodalEQ.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\liveprogWrapper.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\dbb.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\crossfeed.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\convolver1D.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\bs2b.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\arbEqConv.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\vdc.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\dynamic.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\generalDSP\TwoStageFFTConvolver.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\generalDSP\spectralInterpolatorFloat.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\generalDSP\interpolation.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\generalDSP\generalProg.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\generalDSP\digitalFilters.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\generalDSP\ArbFIRGen.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\nseel-compiler.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\nseel-ram.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\y.tab.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\s_str.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\fft.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\libsamplerate\samplerate.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\FFTConvolver.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\solvopt.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\quadprog.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\codelet.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\cpoly.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\MersenneTwister.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\FilterDesign\firls.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\FilterDesign\polyphaseFilterbank.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\FilterDesign\polyphaseASRC.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\FilterDesign\generalFdesign.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\FilterDesign\eqnerror.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\FilterDesign\cos_fib_paraunitary.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\SolveLinearSystem\qr_fact.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\SolveLinearSystem\pinv.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\SolveLinearSystem\mrdivide.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\SolveLinearSystem\mldivide.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\SolveLinearSystem\inv.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\cxbasic.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\cxaop.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\cxconvf.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\cxconstant.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\cxexp.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\cxhypb.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\cxidiv.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\cxprcmp.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\cxpow.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\cxtrig.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\hpaconf.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\xtrig.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\xtoflt.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\xpwr.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\xprcmp.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\xneg.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\xmul.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\xlog.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\xfrac.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\xfmod.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\xexp.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\xdiv.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\xadd.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\xsqrt.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\xsigerr.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\xevtch.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\xchcof.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\shift.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\sfmod.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\prxpr.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\print.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\prcxpr.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\constant.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\atox.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\xhypb.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\xivhypb.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\xivtrg.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\HPFloat\xtodbl.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\libsamplerate\src_sinc.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="$(SolutionDir)\libjamesdsp\jni\jamesdsp\jdsp\Effects\eel2\numericSys\libsamplerate\src_linear.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

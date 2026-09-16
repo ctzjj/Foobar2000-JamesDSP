@@ -38,13 +38,11 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>Unicode</CharacterSet>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
     <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <CharacterSet>Unicode</CharacterSet>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
     <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
@@ -68,6 +66,10 @@
     <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
     <IntDir>$(Configuration)\</IntDir>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Platform)'=='x64'">
+    <OutDir>$(SolutionDir)x64\$(Configuration)\</OutDir>
+    <IntDir>x64\$(Configuration)\</IntDir>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
@@ -81,6 +83,7 @@
       <FloatingPointModel>Fast</FloatingPointModel>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;JAMESDSP_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -104,6 +107,7 @@
       <FloatingPointModel>Fast</FloatingPointModel>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;_USRDLL;JAMESDSP_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -129,12 +133,11 @@
       <FloatingPointModel>Fast</FloatingPointModel>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;_USRDLL;JAMESDSP_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
-      <OptimizeReferences>true</OptimizeReferences>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <TargetMachine>MachineX86</TargetMachine>
       <AdditionalDependencies>$(SolutionDir)sdk\foobar2000\shared\shared-$(Platform).lib;shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
@@ -157,12 +160,11 @@
       <FloatingPointModel>Fast</FloatingPointModel>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;_USRDLL;JAMESDSP_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
-      <OptimizeReferences>true</OptimizeReferences>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <AdditionalDependencies>$(SolutionDir)sdk\foobar2000\shared\shared-$(Platform).lib;shlwapi.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
@@ -176,6 +178,8 @@
     <ClCompile Include="jdsp_ipc_client.cpp" />
     <ClCompile Include="jdsp_config_dialog.cpp" />
     <ClCompile Include="jdsp_eq_widget.cpp" />
+    <ClCompile Include="jdsp_config_serializer.cpp" />
+    <ClCompile Include="dllmain.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
@@ -190,6 +194,7 @@
     <ClInclude Include="resource.h" />
     <ClInclude Include="strings_en.h" />
     <ClInclude Include="strings_zh.h" />
+    <ClInclude Include="strings.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="foo_dsp_jamesdsp.rc" />

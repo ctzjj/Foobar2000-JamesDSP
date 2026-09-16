@@ -13,10 +13,11 @@ bool JdspHostManager::Start(const wchar_t* host_exe_path) {
     sa.bInheritHandle = TRUE;
     sa.lpSecurityDescriptor = NULL;
 
-    if (!CreatePipe(&m_hStdinRead, &m_hStdinWrite, &sa, 0)) return false;
+    const DWORD kPipeBuf = 1 << 20; // 1 MB reduces blocking on large audio frames
+    if (!CreatePipe(&m_hStdinRead, &m_hStdinWrite, &sa, kPipeBuf)) return false;
     SetHandleInformation(m_hStdinWrite, HANDLE_FLAG_INHERIT, 0);
 
-    if (!CreatePipe(&m_hStdoutRead, &m_hStdoutWrite, &sa, 0)) return false;
+    if (!CreatePipe(&m_hStdoutRead, &m_hStdoutWrite, &sa, kPipeBuf)) return false;
     SetHandleInformation(m_hStdoutRead, HANDLE_FLAG_INHERIT, 0);
 
     PROCESS_INFORMATION pi;
@@ -31,7 +32,7 @@ bool JdspHostManager::Start(const wchar_t* host_exe_path) {
     si.dwFlags = STARTF_USESTDHANDLES;
 
     if (!CreateProcessW(host_exe_path, NULL, NULL, NULL,
-                        TRUE, 0, NULL, NULL, &si, &pi)) {
+                        TRUE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi)) {
         Stop();
         return false;
     }

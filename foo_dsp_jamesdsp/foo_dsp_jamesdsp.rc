@@ -2,12 +2,197 @@
 #include <commctrl.h>
 #include "resource.h"
 
-IDD_JDSP_CONFIG DIALOGEX 0, 0, 400, 300
-STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+#ifndef TBS_NOTICKS
+#define TBS_NOTICKS 0x0008
+#endif
+#ifndef TBS_HORZ
+#define TBS_HORZ 0x0000
+#endif
+#ifndef TBS_VERT
+#define TBS_VERT 0x0004
+#endif
+
+IDD_JDSP_CONFIG DIALOGEX 0, 0, 500, 370
+STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX
 CAPTION "JamesDSP Settings"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    DEFPUSHBUTTON   "OK", IDOK, 290, 278, 50, 14
-    PUSHBUTTON      "Cancel", IDCANCEL, 345, 278, 50, 14
-    CONTROL         "", IDC_TAB_MAIN, WC_TABCONTROL, WS_TABSTOP, 7, 7, 386, 265
+    CONTROL         "", IDC_TAB_MAIN, WC_TABCONTROL, WS_TABSTOP, 7, 7, 486, 335
+    PUSHBUTTON      "Save Config", IDC_BTN_SAVE_CONFIG, 80, 350, 60, 14
+    PUSHBUTTON      "Load Config", IDC_BTN_LOAD_CONFIG, 145, 350, 60, 14
+    PUSHBUTTON      "Reset All", IDC_BTN_RESET_ALL, 210, 350, 50, 14
+    COMBOBOX        IDC_COMBO_LANGUAGE, 300, 350, 60, 60, CBS_DROPDOWNLIST | WS_VSCROLL
+    DEFPUSHBUTTON   "OK", IDOK, 380, 350, 50, 14
+    PUSHBUTTON      "Cancel", IDCANCEL, 436, 350, 50, 14
+END
+
+IDD_TAB_MODULES DIALOGEX 0, 0, 470, 310
+STYLE DS_SETFONT | DS_CONTROL | WS_CHILD | WS_BORDER
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    AUTOCHECKBOX     "Analog Modelling",     IDC_CHK_ANALOG,       10, 10, 200, 10
+    AUTOCHECKBOX     "BS2B Crossfeed",       IDC_CHK_BS2B,         10, 28, 200, 10
+    AUTOCHECKBOX     "DDC",                  IDC_CHK_DDC,          10, 46, 200, 10
+    AUTOCHECKBOX     "Limiter",              IDC_CHK_LIMITER,      10, 64, 200, 10
+    AUTOCHECKBOX     "Compressor",           IDC_CHK_COMPRESSOR,   10, 82, 200, 10
+    AUTOCHECKBOX     "Convolver",            IDC_CHK_CONVOLVER,    10, 100, 200, 10
+    AUTOCHECKBOX     "Reverb",               IDC_CHK_REVERB,       10, 118, 200, 10
+    AUTOCHECKBOX     "Bass Boost",           IDC_CHK_BASS_BOOST,   10, 136, 200, 10
+    AUTOCHECKBOX     "Stereo Widener",       IDC_CHK_STEREO,       10, 154, 200, 10
+    AUTOCHECKBOX     "IIR Filters",          IDC_CHK_IIR,          10, 172, 200, 10
+    AUTOCHECKBOX     "Spectrum Extender",    IDC_CHK_SPECTRUM,     10, 190, 200, 10
+    AUTOCHECKBOX     "Dynamic System",       IDC_CHK_DYNAMIC_SYS,  10, 208, 200, 10
+    AUTOCHECKBOX     "EEL2 Scripting",       IDC_CHK_EEL2,         10, 226, 200, 10
+END
+
+IDD_TAB_EQ DIALOGEX 0, 0, 470, 310
+STYLE DS_SETFONT | DS_CONTROL | WS_CHILD | WS_BORDER
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    LTEXT            "+0.0",  IDC_STATIC_EQ_BANDVAL0, 10, 164, 34, 8
+    CONTROL          "",     IDC_SLIDER_EQ_BAND0, "msctls_trackbar32", TBS_VERT | TBS_NOTICKS, 17, 176, 20, 68
+    LTEXT            "31",    IDC_STATIC_EQ_BANDFREQ0, 12, 250, 30, 8
+    LTEXT            "+0.0",  IDC_STATIC_EQ_BANDVAL0 + 1, 54, 164, 34, 8
+    CONTROL          "",     IDC_SLIDER_EQ_BAND0 + 1, "msctls_trackbar32", TBS_VERT | TBS_NOTICKS, 61, 176, 20, 68
+    LTEXT            "62",    IDC_STATIC_EQ_BANDFREQ0 + 1, 56, 250, 30, 8
+    LTEXT            "+0.0",  IDC_STATIC_EQ_BANDVAL0 + 2, 98, 164, 34, 8
+    CONTROL          "",     IDC_SLIDER_EQ_BAND0 + 2, "msctls_trackbar32", TBS_VERT | TBS_NOTICKS, 105, 176, 20, 68
+    LTEXT            "125",   IDC_STATIC_EQ_BANDFREQ0 + 2, 100, 250, 30, 8
+    LTEXT            "+0.0",  IDC_STATIC_EQ_BANDVAL0 + 3, 142, 164, 34, 8
+    CONTROL          "",     IDC_SLIDER_EQ_BAND0 + 3, "msctls_trackbar32", TBS_VERT | TBS_NOTICKS, 149, 176, 20, 68
+    LTEXT            "250",   IDC_STATIC_EQ_BANDFREQ0 + 3, 144, 250, 30, 8
+    LTEXT            "+0.0",  IDC_STATIC_EQ_BANDVAL0 + 4, 186, 164, 34, 8
+    CONTROL          "",     IDC_SLIDER_EQ_BAND0 + 4, "msctls_trackbar32", TBS_VERT | TBS_NOTICKS, 193, 176, 20, 68
+    LTEXT            "500",   IDC_STATIC_EQ_BANDFREQ0 + 4, 188, 250, 30, 8
+    LTEXT            "+0.0",  IDC_STATIC_EQ_BANDVAL0 + 5, 230, 164, 34, 8
+    CONTROL          "",     IDC_SLIDER_EQ_BAND0 + 5, "msctls_trackbar32", TBS_VERT | TBS_NOTICKS, 237, 176, 20, 68
+    LTEXT            "1k",    IDC_STATIC_EQ_BANDFREQ0 + 5, 232, 250, 30, 8
+    LTEXT            "+0.0",  IDC_STATIC_EQ_BANDVAL0 + 6, 274, 164, 34, 8
+    CONTROL          "",     IDC_SLIDER_EQ_BAND0 + 6, "msctls_trackbar32", TBS_VERT | TBS_NOTICKS, 281, 176, 20, 68
+    LTEXT            "2k",    IDC_STATIC_EQ_BANDFREQ0 + 6, 276, 250, 30, 8
+    LTEXT            "+0.0",  IDC_STATIC_EQ_BANDVAL0 + 7, 318, 164, 34, 8
+    CONTROL          "",     IDC_SLIDER_EQ_BAND0 + 7, "msctls_trackbar32", TBS_VERT | TBS_NOTICKS, 325, 176, 20, 68
+    LTEXT            "4k",    IDC_STATIC_EQ_BANDFREQ0 + 7, 320, 250, 30, 8
+    LTEXT            "+0.0",  IDC_STATIC_EQ_BANDVAL0 + 8, 362, 164, 34, 8
+    CONTROL          "",     IDC_SLIDER_EQ_BAND0 + 8, "msctls_trackbar32", TBS_VERT | TBS_NOTICKS, 369, 176, 20, 68
+    LTEXT            "8k",    IDC_STATIC_EQ_BANDFREQ0 + 8, 364, 250, 30, 8
+    LTEXT            "+0.0",  IDC_STATIC_EQ_BANDVAL0 + 9, 406, 164, 34, 8
+    CONTROL          "",     IDC_SLIDER_EQ_BAND0 + 9, "msctls_trackbar32", TBS_VERT | TBS_NOTICKS, 413, 176, 20, 68
+    LTEXT            "16k",   IDC_STATIC_EQ_BANDFREQ0 + 9, 408, 250, 30, 8
+    LTEXT            "Band:",               IDL_EQ_BAND,       10, 274, 26, 8
+    COMBOBOX         IDC_COMBO_EQ_BAND,     38, 272, 55, 80, CBS_DROPDOWNLIST | WS_VSCROLL
+    LTEXT            "Freq:",               IDL_EQ_FREQ,       100, 274, 24, 8
+    EDITTEXT         IDC_EDIT_EQ_FREQ,      126, 272, 45, 13, ES_AUTOHSCROLL
+    LTEXT            "(20-20000 Hz)",       IDL_EQ_FREQ_UNIT,  174, 274, 58, 8
+    LTEXT            "Q:",                  IDL_EQ_Q,          238, 274, 12, 8
+    EDITTEXT         IDC_EDIT_EQ_Q,         252, 272, 40, 13, ES_AUTOHSCROLL
+    LTEXT            "(0.1-10.0)",          IDL_EQ_Q_UNIT,     296, 274, 48, 8
+    PUSHBUTTON       "Reset Flat",          IDC_BTN_EQ_RESET,  352, 271, 55, 14
+END
+
+IDD_TAB_DYNAMICS DIALOGEX 0, 0, 470, 310
+STYLE DS_SETFONT | DS_CONTROL | WS_CHILD | WS_BORDER
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    GROUPBOX         "Compressor",           IDL_DYN_COMP_GRP,      10, 10, 450, 100
+    AUTOCHECKBOX     "Enable",               IDC_CHK_COMP,          20, 25, 100, 10
+    LTEXT            "Threshold (dB):",      IDL_DYN_COMP_THRESH,   20, 42, 60, 10
+    CONTROL          "",                     IDC_SLIDER_COMP_THRESH, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 85, 40, 200, 14
+    LTEXT            "-20",                  IDC_STATIC_COMP_THRESH,    290, 42, 50, 10
+    LTEXT            "Ratio:",               IDL_DYN_COMP_RATIO,    20, 60, 40, 10
+    CONTROL          "",                     IDC_SLIDER_COMP_RATIO, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 85, 58, 200, 14
+    LTEXT            "4:1",                  IDC_STATIC_COMP_RATIO,     290, 60, 50, 10
+    LTEXT            "Attack (ms):",         IDL_DYN_COMP_ATTACK,   20, 78, 55, 10
+    CONTROL          "",                     IDC_SLIDER_COMP_ATTACK, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 85, 76, 200, 14
+    LTEXT            "5",                    IDC_STATIC_COMP_ATTACK,    290, 78, 50, 10
+    LTEXT            "Release (ms):",        IDL_DYN_COMP_RELEASE,  20, 96, 55, 10
+    CONTROL          "",                     IDC_SLIDER_COMP_RELEASE, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 85, 94, 200, 14
+    LTEXT            "50",                   IDC_STATIC_COMP_RELEASE,   290, 96, 50, 10
+    GROUPBOX         "Limiter",              IDL_DYN_LIM_GRP,       10, 115, 450, 65
+    AUTOCHECKBOX     "Enable",               IDC_CHK_LIM,           20, 130, 100, 10
+    LTEXT            "Threshold (dB):",      IDL_DYN_LIM_THRESH,    20, 148, 60, 10
+    CONTROL          "",                     IDC_SLIDER_LIM_THRESH, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 85, 146, 200, 14
+    LTEXT            "0",                    IDC_STATIC_LIM_THRESH,     290, 148, 50, 10
+    LTEXT            "Release (ms):",        IDL_DYN_LIM_RELEASE,   20, 166, 55, 10
+    CONTROL          "",                     IDC_SLIDER_LIM_RELEASE, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 85, 164, 200, 14
+    LTEXT            "50",                   IDC_STATIC_LIM_RELEASE,    290, 166, 50, 10
+    GROUPBOX         "DDC",                  IDL_DYN_DDC_GRP,       10, 185, 450, 80
+    AUTOCHECKBOX     "Enable",               IDC_CHK_DDC_ENABLE,    20, 200, 100, 10
+    LTEXT            "Strength:",            IDL_DYN_DDC_STRENGTH,  20, 218, 50, 10
+    CONTROL          "",                     IDC_SLIDER_DDC_STRENGTH, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 85, 216, 200, 14
+    LTEXT            "50%",                  IDC_STATIC_DDC_STRENGTH,   290, 218, 50, 10
+    LTEXT            "Profile:",             IDL_DYN_DDC_PROFILE,   20, 240, 40, 10
+    EDITTEXT         IDC_EDIT_DDC_PROFILE,                       65, 237, 330, 14, ES_AUTOHSCROLL
+    PUSHBUTTON       "Browse...",            IDC_BTN_DDC_BROWSE,  400, 237, 50, 14
+END
+
+IDD_TAB_EFFECTS DIALOGEX 0, 0, 470, 310
+STYLE DS_SETFONT | DS_CONTROL | WS_CHILD | WS_BORDER
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    GROUPBOX         "Bass Boost",           IDL_FX_BASS_GRP,       10, 10, 220, 65
+    AUTOCHECKBOX     "Enable",               IDC_CHK_BASS_EFFECT,   20, 25, 100, 10
+    LTEXT            "Boost (dB):",          IDL_FX_BASS_BOOST,     20, 42, 55, 10
+    CONTROL          "",                     IDC_SLIDER_BASS_BOOST, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 80, 40, 100, 14
+    LTEXT            "6",                    IDC_STATIC_BASS_BOOST,    185, 42, 40, 10
+    LTEXT            "Freq (Hz):",           IDL_FX_BASS_FREQ,      20, 58, 50, 10
+    CONTROL          "",                     IDC_SLIDER_BASS_FREQ, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 80, 56, 100, 14
+    LTEXT            "100",                  IDC_STATIC_BASS_FREQ,     185, 58, 40, 10
+    GROUPBOX         "Stereo Widener",       IDL_FX_STEREO_GRP,     240, 10, 220, 45
+    AUTOCHECKBOX     "Enable",               IDC_CHK_STEREO_EFFECT, 250, 25, 100, 10
+    LTEXT            "Width (%):",           IDL_FX_STEREO_WIDTH,   250, 42, 50, 10
+    CONTROL          "",                     IDC_SLIDER_STEREO_WIDTH, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 305, 40, 100, 14
+    LTEXT            "120",                  IDC_STATIC_STEREO_WIDTH,  410, 42, 40, 10
+    GROUPBOX         "Reverb",               IDL_FX_REVERB_GRP,     10, 80, 220, 85
+    AUTOCHECKBOX     "Enable",               IDC_CHK_REVERB_EFFECT, 20, 95, 100, 10
+    LTEXT            "Room:",                IDL_FX_REVERB_ROOM,    20, 112, 35, 10
+    CONTROL          "",                     IDC_SLIDER_REVERB_ROOM, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 60, 110, 110, 14
+    LTEXT            "0.7",                  IDC_STATIC_REVERB_ROOM,   175, 112, 50, 10
+    LTEXT            "Damp:",                IDL_FX_REVERB_DAMP,    20, 128, 35, 10
+    CONTROL          "",                     IDC_SLIDER_REVERB_DAMP, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 60, 126, 110, 14
+    LTEXT            "0.5",                  IDC_STATIC_REVERB_DAMP,   175, 128, 50, 10
+    LTEXT            "Wet:",                 IDL_FX_REVERB_WET,     20, 144, 30, 10
+    CONTROL          "",                     IDC_SLIDER_REVERB_WET, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 60, 142, 110, 14
+    LTEXT            "0.3",                  IDC_STATIC_REVERB_WET,    175, 144, 50, 10
+    GROUPBOX         "Analog Modelling",     IDL_FX_TUBE_GRP,       240, 60, 220, 45
+    AUTOCHECKBOX     "Enable",               IDC_CHK_TUBE_EFFECT,   250, 75, 100, 10
+    LTEXT            "Drive:",               IDL_FX_TUBE_DRIVE,     250, 92, 35, 10
+    CONTROL          "",                     IDC_SLIDER_TUBE_DRIVE, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 290, 90, 100, 14
+    LTEXT            "60%",                  IDC_STATIC_TUBE_DRIVE,    395, 92, 40, 10
+    GROUPBOX         "BS2B Crossfeed",       IDL_FX_BS2B_GRP,       240, 110, 220, 65
+    AUTOCHECKBOX     "Enable",               IDC_CHK_BS2B_EFFECT,   250, 125, 100, 10
+    LTEXT            "Feed:",                IDL_FX_BS2B_FEED,      250, 142, 35, 10
+    CONTROL          "",                     IDC_SLIDER_BS2B_FEED, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 290, 140, 100, 14
+    LTEXT            "70",                   IDC_STATIC_BS2B_FEED,     395, 142, 40, 10
+    LTEXT            "Freq:",                IDL_FX_BS2B_FREQ,      250, 158, 35, 10
+    CONTROL          "",                     IDC_SLIDER_BS2B_FREQ, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 290, 156, 100, 14
+    LTEXT            "650",                  IDC_STATIC_BS2B_FREQ,     395, 158, 40, 10
+END
+
+IDD_TAB_CONVOLVER DIALOGEX 0, 0, 470, 310
+STYLE DS_SETFONT | DS_CONTROL | WS_CHILD | WS_BORDER
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    AUTOCHECKBOX     "Enable Convolver",     IDC_CHK_CONV_ENABLE, 10, 10, 200, 10
+    GROUPBOX         "Impulse Response",     IDL_CV_IR_GRP,       10, 25, 450, 80
+    LTEXT            "File:",                IDL_CV_FILE,         20, 42, 25, 10
+    EDITTEXT         IDC_EDIT_CONV_IR,                           50, 40, 340, 14, ES_AUTOHSCROLL | ES_READONLY
+    PUSHBUTTON       "Browse...",            IDC_BTN_CONV_BROWSE, 395, 40, 55, 14
+    LTEXT            "No IR loaded",         IDC_STATIC_CONV_INFO, 20, 65, 430, 10
+    GROUPBOX         "Gain",                 IDL_CV_GAIN_GRP,     10, 110, 450, 45
+    LTEXT            "Gain (dB):",           IDL_CV_GAIN,         20, 130, 55, 10
+    CONTROL          "",                     IDC_SLIDER_CONV_GAIN, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 80, 128, 300, 14
+    LTEXT            "0 dB",                 IDC_STATIC_CONV_GAIN,    385, 130, 60, 10
+END
+
+IDD_TAB_SCRIPT DIALOGEX 0, 0, 470, 310
+STYLE DS_SETFONT | DS_CONTROL | WS_CHILD | WS_BORDER
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    AUTOCHECKBOX     "Enable EEL2 Scripting", IDC_CHK_SCRIPT_ENABLE, 10, 10, 200, 10
+    LTEXT            "Script:",              IDL_SC_SCRIPT,       10, 28, 30, 10
+    EDITTEXT         IDC_EDIT_SCRIPT,                            10, 42, 450, 230, ES_MULTILINE | ES_AUTOVSCROLL | ES_WANTRETURN | WS_VSCROLL | WS_HSCROLL
+    PUSHBUTTON       "Load Script...",       IDC_BTN_SCRIPT_LOAD,  10, 278, 80, 14
+    PUSHBUTTON       "Save Script...",       IDC_BTN_SCRIPT_SAVE,  95, 278, 80, 14
+    LTEXT            "Status: Ready",        IDL_SC_STATUS, 200, 280, 260, 10
 END
