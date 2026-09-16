@@ -10,6 +10,9 @@ struct EqBand {
 
 #define WC_EQCURVE L"JDSP_EQ_CURVE"
 
+// The library's FIR equalizer has NUMPTS == 15 points.
+#define JDSP_EQ_BANDS 15
+
 class JdspEqWidget {
 public:
     JdspEqWidget();
@@ -18,8 +21,8 @@ public:
     void Create(HWND parent, int x, int y, int w, int h);
     HWND GetHWND() const { return m_hwnd; }
 
-    void SetBands(const EqBand bands[10]);
-    void GetBands(EqBand bands[10]) const;
+    void SetBands(const EqBand bands[JDSP_EQ_BANDS]);
+    void GetBands(EqBand bands[JDSP_EQ_BANDS]) const;
     void SetSelectedBand(int band);
     int GetSelectedBand() const;
     const EqBand& GetSelectedBandData() const;
@@ -42,7 +45,7 @@ private:
     int HitTest(int x, int y, const RECT& rc);
 
     HWND m_hwnd = NULL;
-    EqBand m_bands[10];
+    EqBand m_bands[JDSP_EQ_BANDS];
     int m_selected_band = 0;
     bool m_dragging = false;
 };

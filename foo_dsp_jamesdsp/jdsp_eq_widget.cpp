@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "jdsp_eq_widget.h"
 #include "resource.h"
 #include <cmath>
@@ -6,8 +6,10 @@
 extern void CfgLog(const char* msg);
 
 JdspEqWidget::JdspEqWidget() {
-    float freqs[] = {31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000};
-    for (int i = 0; i < 10; i++) {
+    // The library's default 15 point axis (multimodalEQ.c).
+    static const float freqs[JDSP_EQ_BANDS] = { 25, 40, 63, 100, 160, 250, 400, 630,
+                                                1000, 1600, 2500, 4000, 6300, 10000, 16000 };
+    for (int i = 0; i < JDSP_EQ_BANDS; i++) {
         m_bands[i].frequency = freqs[i];
     }
 }
@@ -45,7 +47,7 @@ void JdspEqWidget::GetBands(EqBand bands[10]) const {
 }
 
 void JdspEqWidget::SetSelectedBand(int band) {
-    if (band >= 0 && band < 10) {
+    if (band >= 0 && band < JDSP_EQ_BANDS) {
         m_selected_band = band;
         Refresh();
     }
@@ -146,7 +148,7 @@ void JdspEqWidget::DrawGrid(HDC hdc, const RECT& rc) {
 
     SetBkMode(hdc, TRANSPARENT);
     const wchar_t* freqLabels[] = {L"31", L"62", L"125", L"250", L"500", L"1k", L"2k", L"4k", L"8k", L"16k"};
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < JDSP_EQ_BANDS; i++) {
         POINT p = FreqGainToPixel(m_bands[i].frequency, 0, rc);
         TextOutW(hdc, p.x - 8, rc.bottom - 14, freqLabels[i], (int)wcslen(freqLabels[i]));
     }
@@ -167,7 +169,7 @@ void JdspEqWidget::DrawCurve(HDC hdc, const RECT& rc) {
         PixelToFreqGain(px, (rc.top + rc.bottom) / 2, freq, gain, rc);
 
         float totalGain = 0;
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < JDSP_EQ_BANDS; i++) {
             if (!m_bands[i].enabled) continue;
             float f0 = m_bands[i].frequency;
             float g = m_bands[i].gain;
@@ -187,7 +189,7 @@ void JdspEqWidget::DrawCurve(HDC hdc, const RECT& rc) {
 }
 
 void JdspEqWidget::DrawHandles(HDC hdc, const RECT& rc) {
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < JDSP_EQ_BANDS; i++) {
         POINT p = FreqGainToPixel(m_bands[i].frequency, m_bands[i].gain, rc);
         HBRUSH br = CreateSolidBrush(i == m_selected_band ? RGB(255, 80, 80) : RGB(0, 120, 215));
         HPEN pen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
@@ -224,7 +226,7 @@ void JdspEqWidget::PixelToFreqGain(int px, int py, float& freq, float& gain, con
 }
 
 int JdspEqWidget::HitTest(int x, int y, const RECT& rc) {
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < JDSP_EQ_BANDS; i++) {
         POINT p = FreqGainToPixel(m_bands[i].frequency, m_bands[i].gain, rc);
         int dx = x - p.x, dy = y - p.y;
         if (dx * dx + dy * dy < 100) return i;
@@ -270,22 +272,14 @@ void JdspEqWidget::OnContextMenu(int x, int y) {
     POINT pt = {x, y};
     ClientToScreen(m_hwnd, &pt);
     HMENU menu = CreatePopupMenu();
-    AppendMenuW(menu, MF_STRING, 1, L"Q = 0.5");
-    AppendMenuW(menu, MF_STRING, 2, L"Q = 0.707");
-    AppendMenuW(menu, MF_STRING, 3, L"Q = 1.0");
-    AppendMenuW(menu, MF_STRING, 4, L"Q = 2.0");
-    AppendMenuW(menu, MF_STRING, 5, L"Q = 5.0");
+    AppendMenuW(menu, MF_STRING, 1, L"Reset band to 0 dB");
     AppendMenuW(menu, MF_SEPARATOR, 0, NULL);
-    AppendMenuW(menu, MF_STRING | (m_bands[m_selected_band].enabled ? MF_CHECKED : MF_UNCHECKED), 6, L"Enabled");
+    AppendMenuW(menu, MF_STRING | (m_bands[m_selected_band].enabled ? MF_CHECKED : MF_UNCHECKED), 2, L"Enabled");
     int cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, pt.x, pt.y, 0, m_hwnd, NULL);
     DestroyMenu(menu);
 
-    if (cmd == 1) m_bands[m_selected_band].q = 0.5f;
-    else if (cmd == 2) m_bands[m_selected_band].q = 0.707f;
-    else if (cmd == 3) m_bands[m_selected_band].q = 1.0f;
-    else if (cmd == 4) m_bands[m_selected_band].q = 2.0f;
-    else if (cmd == 5) m_bands[m_selected_band].q = 5.0f;
-    else if (cmd == 6) m_bands[m_selected_band].enabled = !m_bands[m_selected_band].enabled;
+    if (cmd == 1) m_bands[m_selected_band].gain = 0.0f;
+    else if (cmd == 2) m_bands[m_selected_band].enabled = !m_bands[m_selected_band].enabled;
     if (cmd) {
         Refresh();
         NMHDR nm = { m_hwnd, IDC_EQ_CURVE, NM_CLICK };
