@@ -23,8 +23,20 @@ bld/
 *.VC.db
 *.VC.VC.opendb
 
-# SDK (vendored - tracked separately)
-sdk/
+# Vendored foobar2000 SDK: the sources are tracked so CI can build, but its
+# build intermediates are not.
+sdk/**/Release/
+sdk/**/Debug/
+sdk/**/x64/
+sdk/**/Win32/
+*.pch
+*.obj
+*.pdb
+*.idb
+*.tlog
+*.iobj
+*.ipdb
+*.exp
 
 # Temp
 temp_jdsp/

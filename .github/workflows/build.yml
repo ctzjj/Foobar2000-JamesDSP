@@ -1,0 +1,80 @@
+name: Build
+
+# Builds the foobar2000 DSP plugin for x86 and x64 and attaches the packaged
+# binaries to the release. Drafts are built when they are published, because
+# only then does the release tag reliably exist in the repository.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to attach the binaries to (leave empty to only build)
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.artifact }}
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: Win32
+            outdir: Release
+            artifact: foo_dsp_jamesdsp-x86
+          - platform: x64
+            outdir: x64/Release
+            artifact: foo_dsp_jamesdsp-x64
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      # The projects set PlatformToolset=v142 (VS2019). The runner ships VS2022,
+      # so the toolset is overridden to v143; the vendored SDK projects support
+      # both.
+      - name: Build (${{ matrix.platform }})
+        run: >
+          msbuild "foobar2000-jamesdsp.sln"
+          /m /nologo /v:minimal
+          /p:Configuration=Release
+          /p:Platform=${{ matrix.platform }}
+          /p:PlatformToolset=v143
+
+      - name: Package (${{ matrix.artifact }})
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path package | Out-Null
+          Copy-Item "${{ matrix.outdir }}/foo_dsp_jamesdsp.dll" package/
+          Copy-Item "${{ matrix.outdir }}/jdsp_host.exe" package/
+          Compress-Archive -Path package/* -DestinationPath "${{ matrix.artifact }}.zip" -Force
+          Get-ChildItem "${{ matrix.artifact }}.zip" | Format-List Name, Length
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}.zip
+          if-no-files-found: error
+
+      - name: Attach to release
+        if: github.event_name == 'release' || inputs.tag != ''
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = if ('${{ github.event_name }}' -eq 'release') {
+            '${{ github.event.release.tag_name }}'
+          } else {
+            '${{ inputs.tag }}'
+          }
+          gh release upload $tag "${{ matrix.artifact }}.zip" --clobber
