@@ -57,6 +57,7 @@ static const ModAlias kModAliases[] = {
     { IDC_CHK_CONV_ENABLE,     kDlgModConvolver },
     { IDC_CHK_SPECTRUM_ENABLE, kDlgModSpectrum },
     { IDC_CHK_SCRIPT_ENABLE,   kDlgModEel2 },
+    { IDC_CHK_EQ_ENABLE,       kDlgModEqualizer },
 };
 
 static const float kEqDefaultFreqs[JDSP_EQ_BANDS] = {
@@ -122,7 +123,7 @@ static const UiLabelDef kUiLabels[] = {
     { IDC_CHK_REVERB,        L"Reverb",           L"\x6df7\x54cd" },
     { IDC_CHK_BASS_BOOST,    L"Bass Boost",       L"\x4f4e\x97f3\x589e\x5f3a" },
     { IDC_CHK_STEREO,        L"Stereo Widener",   L"\x7acb\x4f53\x58f0\x589e\x5f3a" },
-    { IDC_CHK_IIR,           L"FIR Equalizer",    L"FIR \x5747\x8861\x5668" },
+    { IDC_CHK_IIR,           L"Equalizer",        L"\x5747\x8861\x5668" },
     { IDC_CHK_SPECTRUM,      L"Spectrum Extender", L"\x9891\x8c31\x6269\x5c55" },
     { IDC_CHK_EEL2,          L"EEL2 Scripting",   L"EEL2 \x811a\x672c" },
     // Equalizer tab
@@ -132,6 +133,7 @@ static const UiLabelDef kUiLabels[] = {
     { IDL_EQ_FILTERTYPE,     L"Filter type:",    L"\x6ee4\x6ce2\x5668\x7c7b\x578b:" },
     { IDL_EQ_INTERP,         L"Interpolation:",  L"\x63d2\x503c:" },
     { IDC_BTN_EQ_RESET,      L"Reset Flat",      L"\x91cd\x7f6e\x4e3a\x5e73\x76f4" },
+    { IDC_CHK_EQ_ENABLE,     L"Enable",          L"\x542f\x7528" },
     // Dynamics tab
     { IDL_DYN_COMP_GRP,      L"Compressor",      L"\x538b\x7f29\x5668" },
     { IDC_CHK_COMP,          L"Enable",          L"\x542f\x7528" },
@@ -815,7 +817,14 @@ void JdspConfigDialog::PushLive(bool full) {
     m_live_blob = blob;
 
     if (!payload.empty()) {
-        JdspSendToActive(payload);
+        bool ok = JdspSendToActive(payload);
+        static int s_push_log = 0;
+        if (s_push_log < 200) {
+            char msg[128];
+            sprintf_s(msg, "PushLive: bytes=%d active=%d", (int)payload.size(), ok ? 1 : 0);
+            CfgLog(msg);
+            s_push_log++;
+        }
     }
 
     m_in_live_push = false;
@@ -1039,6 +1048,8 @@ void JdspConfigDialog::InitEqTab(HWND hwnd) {
     (void)hwnd;
     HWND tab = m_tab_dialogs[1];
     if (!tab) return;
+    HWND eqchk = GetDlgItem(tab, IDC_CHK_EQ_ENABLE);
+    if (eqchk) Button_SetCheck(eqchk, m_modules[kDlgModEqualizer] ? BST_CHECKED : BST_UNCHECKED);
     m_eq_widget.SetBands(m_eq_bands);
 
     EnsureEqClassRegistered();

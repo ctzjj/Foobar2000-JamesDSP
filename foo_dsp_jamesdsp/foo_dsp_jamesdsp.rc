@@ -39,7 +39,7 @@ BEGIN
     AUTOCHECKBOX     "Reverb",               IDC_CHK_REVERB,       10, 118, 200, 10
     AUTOCHECKBOX     "Bass Boost",           IDC_CHK_BASS_BOOST,   10, 136, 200, 10
     AUTOCHECKBOX     "Stereo Widener",       IDC_CHK_STEREO,       10, 154, 200, 10
-    AUTOCHECKBOX     "FIR Equalizer",        IDC_CHK_IIR,          10, 172, 200, 10
+    AUTOCHECKBOX     "Equalizer",            IDC_CHK_IIR,          10, 172, 200, 10
     AUTOCHECKBOX     "Spectrum Extender",    IDC_CHK_SPECTRUM,     10, 190, 200, 10
     AUTOCHECKBOX     "EEL2 Scripting",       IDC_CHK_EEL2,         10, 208, 200, 10
 END
@@ -100,6 +100,7 @@ BEGIN
     LTEXT            "Gain (dB):",      IDL_EQ_GAIN,        206, 268, 44, 8
     EDITTEXT         IDC_EDIT_EQ_GAIN,                      252, 266, 50, 13, ES_AUTOHSCROLL
     PUSHBUTTON       "Reset Flat",      IDC_BTN_EQ_RESET,   320, 265, 60, 14
+    AUTOCHECKBOX     "Enable",          IDC_CHK_EQ_ENABLE,  8, 266, 60, 12
     LTEXT            "Filter type:",    IDL_EQ_FILTERTYPE,  10, 288, 46, 8
     COMBOBOX         IDC_COMBO_EQ_FILTERTYPE,               58, 286, 110, 120, CBS_DROPDOWNLIST | WS_VSCROLL
     LTEXT            "Interpolation:",  IDL_EQ_INTERP,      180, 288, 48, 8

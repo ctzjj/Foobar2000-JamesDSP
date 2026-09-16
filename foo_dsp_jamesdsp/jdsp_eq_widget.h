@@ -13,6 +13,9 @@ struct EqBand {
 // The library's FIR equalizer has NUMPTS == 15 points.
 #define JDSP_EQ_BANDS 15
 
+// Vertical range of the curve display (matches the band slider range).
+#define JDSP_EQ_GAIN_MAX 24.0f
+
 class JdspEqWidget {
 public:
     JdspEqWidget();

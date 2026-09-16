@@ -41,6 +41,7 @@ private:
     void ApplyEqualizer();
     void ApplyCompressor();
     void ApplyReverb();
+    void ApplyReverbScalars();
     // Copies the preset's values into the individual reverb parameters.
     void LoadReverbPresetDefaults();
     bool LoadImpulseResponse(const std::wstring& path);

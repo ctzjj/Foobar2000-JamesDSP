@@ -180,8 +180,30 @@ void JdspEngine::ApplyReverb() {
                      (float)m_reverb_rt60, (float)m_reverb_predelay);
 }
 
-void JdspEngine::LoadReverbPresetDefaults() {
+// sf_advancereverb() rebuilds (and zeroes) every delay/comb/allpass buffer, so it must
+// only run when a parameter that changes the topology moves (RT60, damping, predelay or
+// the preset). Wet/dry/width/bass/ER are plain state fields, so they are written
+// directly - otherwise dragging a slider would restart the reverb tail on every tick.
+static float JdspDb2Lin(float db) { return powf(10.0f, 0.05f * db); }
+
+void JdspEngine::ApplyReverbScalars() {
+    if (!m_jdsp) return;
+    JamesDSPLib* jdsp = JDSP(m_jdsp);
+    sf_reverb_state_st* rv = &jdsp->reverb;
     const JdspReverbParams& p =
+        kJdspReverbPresets[clamp_int(m_reverb_preset, 0, JDSP_REVERB_PRESET_COUNT - 1)];
+
+    float wet = JdspDb2Lin((float)m_reverb_wet);
+    rv->ertolate = (float)m_reverb_er;
+    rv->erefwet = JdspDb2Lin(p.erefwet);
+    rv->dry = JdspDb2Lin((float)m_reverb_dry);
+    rv->wet1 = wet * ((float)m_reverb_width * 0.5f + 0.5f);
+    rv->wet2 = wet * ((1.0f - (float)m_reverb_width) * 0.5f);
+    rv->wander = p.wander;
+    rv->bassb = (float)m_reverb_bass;
+}
+
+void JdspEngine::LoadReverbPresetDefaults() {    const JdspReverbParams& p =
         kJdspReverbPresets[clamp_int(m_reverb_preset, 0, JDSP_REVERB_PRESET_COUNT - 1)];
     m_reverb_wet = p.wet;
     m_reverb_dry = p.dry;
@@ -485,15 +507,15 @@ void JdspEngine::SetParam(const std::string& key, const std::string& value) {
     }
     else if (key == "reverb.wet") {
         m_reverb_wet = clamp_double(dv, -70.0, 0.0);
-        ApplyReverb();
+        ApplyReverbScalars();
     }
     else if (key == "reverb.dry") {
         m_reverb_dry = clamp_double(dv, -30.0, 0.0);
-        ApplyReverb();
+        ApplyReverbScalars();
     }
     else if (key == "reverb.width") {
         m_reverb_width = clamp_double(dv, 0.0, 1.0);
-        ApplyReverb();
+        ApplyReverbScalars();
     }
     else if (key == "reverb.rt60") {
         m_reverb_rt60 = clamp_double(dv, 0.5, 30.0);
@@ -505,7 +527,7 @@ void JdspEngine::SetParam(const std::string& key, const std::string& value) {
     }
     else if (key == "reverb.bassboost") {
         m_reverb_bass = clamp_double(dv, 0.0, 2.0);
-        ApplyReverb();
+        ApplyReverbScalars();
     }
     else if (key == "reverb.predelay") {
         m_reverb_predelay = clamp_double(dv, 0.0, 0.1);
@@ -513,7 +535,7 @@ void JdspEngine::SetParam(const std::string& key, const std::string& value) {
     }
     else if (key == "reverb.er") {
         m_reverb_er = clamp_double(dv, 0.0, 1.0);
-        ApplyReverb();
+        ApplyReverbScalars();
     }
 
     // ---- bass boost ----

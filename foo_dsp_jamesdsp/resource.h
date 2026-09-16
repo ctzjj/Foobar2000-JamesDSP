@@ -36,6 +36,7 @@
 #define IDC_COMBO_EQ_FILTERTYPE 1305
 #define IDC_COMBO_EQ_INTERP     1306
 #define IDC_BTN_EQ_RESET        1307
+#define IDC_CHK_EQ_ENABLE       1308
 // 15 vertical band gain sliders (IDC_SLIDER_EQ_BAND0 + 0..14)
 #define IDC_SLIDER_EQ_BAND0     1310
 #define IDC_SLIDER_EQ_BAND_LAST 1324

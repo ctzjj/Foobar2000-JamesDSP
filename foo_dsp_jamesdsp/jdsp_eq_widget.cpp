@@ -157,34 +157,46 @@ void JdspEqWidget::DrawGrid(HDC hdc, const RECT& rc) {
         TextOutW(hdc, p.x - 8, rc.bottom - 14, freqLabels[i], (int)wcslen(freqLabels[i]));
     }
     TextOutW(hdc, 2, zeroY - 7, L"0dB", 3);
-    TextOutW(hdc, 2, rc.top + 2, L"+12", 3);
-    TextOutW(hdc, 2, rc.bottom - 16, L"-12", 3);
+    TextOutW(hdc, 2, rc.top + 2, L"+24", 3);
+    TextOutW(hdc, 2, rc.bottom - 16, L"-24", 3);
 }
 
 void JdspEqWidget::DrawCurve(HDC hdc, const RECT& rc) {
     if (rc.right <= rc.left || rc.bottom <= rc.top) return;
+
+    // The library builds its response by interpolating the 15 axis points, so the
+    // drawn curve interpolates the same points instead of summing independent bells.
+    float logFreq[JDSP_EQ_BANDS];
+    for (int i = 0; i < JDSP_EQ_BANDS; i++) logFreq[i] = log10f(m_bands[i].frequency);
 
     HPEN curvePen = CreatePen(PS_SOLID, 2, RGB(0, 120, 215));
     HPEN oldPen = (HPEN)SelectObject(hdc, curvePen);
 
     bool first = true;
     for (int px = rc.left; px <= rc.right; px++) {
-        float freq, gain;
-        PixelToFreqGain(px, (rc.top + rc.bottom) / 2, freq, gain, rc);
+        float t = (float)(px - rc.left) / (float)(rc.right - rc.left);
+        float logF = log10f(20.0f) + t * (log10f(20000.0f) - log10f(20.0f));
 
-        float totalGain = 0;
-        for (int i = 0; i < JDSP_EQ_BANDS; i++) {
-            if (!m_bands[i].enabled) continue;
-            float f0 = m_bands[i].frequency;
-            float g = m_bands[i].gain;
-            float q = m_bands[i].q;
-            float ratio = freq / f0;
-            float bandGain = g / (1.0f + q * q * (ratio - 1.0f / ratio) * (ratio - 1.0f / ratio));
-            totalGain += bandGain;
+        float gain;
+        if (logF <= logFreq[0]) {
+            gain = m_bands[0].enabled ? m_bands[0].gain : 0.0f;
+        } else if (logF >= logFreq[JDSP_EQ_BANDS - 1]) {
+            gain = m_bands[JDSP_EQ_BANDS - 1].enabled ? m_bands[JDSP_EQ_BANDS - 1].gain : 0.0f;
+        } else {
+            int hi = 1;
+            while (hi < JDSP_EQ_BANDS - 1 && logFreq[hi] < logF) hi++;
+            int lo = hi - 1;
+            float span = logFreq[hi] - logFreq[lo];
+            float u = (span > 0.0f) ? (logF - logFreq[lo]) / span : 0.0f;
+            float g0 = m_bands[lo].enabled ? m_bands[lo].gain : 0.0f;
+            float g1 = m_bands[hi].enabled ? m_bands[hi].gain : 0.0f;
+            gain = g0 + (g1 - g0) * u;
         }
-        totalGain = max(-12.0f, min(12.0f, totalGain));
+        if (gain > JDSP_EQ_GAIN_MAX) gain = JDSP_EQ_GAIN_MAX;
+        if (gain < -JDSP_EQ_GAIN_MAX) gain = -JDSP_EQ_GAIN_MAX;
 
-        int py = rc.top + (int)((12.0f - totalGain) / 24.0f * (rc.bottom - rc.top));
+        int py = rc.top + (int)((JDSP_EQ_GAIN_MAX - gain) /
+                                (2.0f * JDSP_EQ_GAIN_MAX) * (rc.bottom - rc.top));
         if (first) { MoveToEx(hdc, px, py, NULL); first = false; }
         else LineTo(hdc, px, py);
     }
@@ -214,7 +226,8 @@ POINT JdspEqWidget::FreqGainToPixel(float freq, float gain, const RECT& rc) {
     float logMax = log10f(20000.0f);
     float logFreq = log10f(max(20.0f, min(20000.0f, freq)));
     p.x = rc.left + (int)((logFreq - logMin) / (logMax - logMin) * (rc.right - rc.left));
-    p.y = rc.top + (int)((12.0f - max(-12.0f, min(12.0f, gain))) / 24.0f * (rc.bottom - rc.top));
+    p.y = rc.top + (int)((JDSP_EQ_GAIN_MAX - max(-JDSP_EQ_GAIN_MAX, min(JDSP_EQ_GAIN_MAX, gain))) /
+                         (2.0f * JDSP_EQ_GAIN_MAX) * (rc.bottom - rc.top));
     return p;
 }
 
@@ -225,8 +238,8 @@ void JdspEqWidget::PixelToFreqGain(int px, int py, float& freq, float& gain, con
     float t = (float)(px - rc.left) / (float)(rc.right - rc.left);
     t = max(0.0f, min(1.0f, t));
     freq = powf(10.0f, logMin + t * (logMax - logMin));
-    gain = 12.0f - (float)(py - rc.top) / (float)(rc.bottom - rc.top) * 24.0f;
-    gain = max(-12.0f, min(12.0f, gain));
+    gain = JDSP_EQ_GAIN_MAX - (float)(py - rc.top) / (float)(rc.bottom - rc.top) * 2.0f * JDSP_EQ_GAIN_MAX;
+    gain = max(-JDSP_EQ_GAIN_MAX, min(JDSP_EQ_GAIN_MAX, gain));
 }
 
 int JdspEqWidget::HitTest(int x, int y, const RECT& rc) {

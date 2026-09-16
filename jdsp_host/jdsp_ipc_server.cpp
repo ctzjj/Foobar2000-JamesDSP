@@ -1,5 +1,6 @@
 #include "jdsp_ipc_server.h"
 #include <cstdio>
+#include <cstdarg>
 #include <cstring>
 #include <string>
 #include <chrono>
@@ -21,8 +22,14 @@
 
 extern FILE* g_log;
 
-static void SvrLog(const char* msg) {
-    if (g_log) { fprintf(g_log, "%s\n", msg); fflush(g_log); }
+static void SvrLog(const char* fmt, ...) {
+    if (!g_log) return;
+    va_list ap;
+    va_start(ap, fmt);
+    vfprintf(g_log, fmt, ap);
+    va_end(ap);
+    fputc('\n', g_log);
+    fflush(g_log);
 }
 
 JdspIpcServer::JdspIpcServer(JdspEngine& engine) : m_engine(engine) {}
@@ -187,18 +194,27 @@ static std::string UnescapeValue(const std::string& v) {
 }
 
 bool JdspIpcServer::HandleSetParam(const std::vector<uint8_t>& payload) {
-    std::string blob(payload.begin(), payload.end());
-    // Payload is one or more "key=value" entries separated by newlines.
-    size_t pos = 0;
-    while (pos < blob.size()) {
-        size_t eol = blob.find('\n', pos);
-        if (eol == std::string::npos) eol = blob.size();
-        std::string line = blob.substr(pos, eol - pos);
-        pos = eol + 1;
-        if (line.empty()) continue;
-        size_t eq = line.find('=');
-        if (eq == std::string::npos) continue;
-        m_engine.SetParam(line.substr(0, eq), UnescapeValue(line.substr(eq + 1)));
+        std::string blob(payload.begin(), payload.end());
+        // Payload is one or more "key=value" entries separated by newlines.
+        static long long s_setparam_count = 0;
+        bool log_this = (s_setparam_count < 400);
+        s_setparam_count++;
+        std::string logged;
+        size_t pos = 0;
+        while (pos < blob.size()) {
+            size_t eol = blob.find('\n', pos);
+            if (eol == std::string::npos) eol = blob.size();
+            std::string line = blob.substr(pos, eol - pos);
+            pos = eol + 1;
+            if (line.empty()) continue;
+            size_t eq = line.find('=');
+            if (eq == std::string::npos) continue;
+            if (log_this) {
+                if (!logged.empty()) logged += ' ';
+                logged += line.substr(0, eq);
+            }
+            m_engine.SetParam(line.substr(0, eq), UnescapeValue(line.substr(eq + 1)));
+        }
+        if (log_this && !logged.empty()) SvrLog("SETPARAM: %s", logged.c_str());
+        return true;
     }
-    return true;
-}
