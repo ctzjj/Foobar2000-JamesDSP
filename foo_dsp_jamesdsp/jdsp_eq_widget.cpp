@@ -37,12 +37,12 @@ void JdspEqWidget::Create(HWND parent, int x, int y, int w, int h) {
         hMod, this);
 }
 
-void JdspEqWidget::SetBands(const EqBand bands[10]) {
+void JdspEqWidget::SetBands(const EqBand bands[JDSP_EQ_BANDS]) {
     memcpy(m_bands, bands, sizeof(m_bands));
     Refresh();
 }
 
-void JdspEqWidget::GetBands(EqBand bands[10]) const {
+void JdspEqWidget::GetBands(EqBand bands[JDSP_EQ_BANDS]) const {
     memcpy(bands, m_bands, sizeof(m_bands));
 }
 
@@ -147,7 +147,11 @@ void JdspEqWidget::DrawGrid(HDC hdc, const RECT& rc) {
     DeleteObject(zeroPen);
 
     SetBkMode(hdc, TRANSPARENT);
-    const wchar_t* freqLabels[] = {L"31", L"62", L"125", L"250", L"500", L"1k", L"2k", L"4k", L"8k", L"16k"};
+    // One label per band, in the library's 15 point axis order.
+    static const wchar_t* freqLabels[JDSP_EQ_BANDS] = {
+        L"25", L"40", L"63", L"100", L"160", L"250", L"400", L"630",
+        L"1k", L"1.6k", L"2.5k", L"4k", L"6.3k", L"10k", L"16k"
+    };
     for (int i = 0; i < JDSP_EQ_BANDS; i++) {
         POINT p = FreqGainToPixel(m_bands[i].frequency, 0, rc);
         TextOutW(hdc, p.x - 8, rc.bottom - 14, freqLabels[i], (int)wcslen(freqLabels[i]));
