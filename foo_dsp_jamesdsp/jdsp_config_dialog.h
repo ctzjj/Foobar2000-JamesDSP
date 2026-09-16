@@ -111,6 +111,14 @@ private:
     double m_bass_boost = 6.0;                // dB 0..15
     double m_stereo_width = 50.0;             // %, 50 is the library identity
     int m_reverb_preset = 0;                  // 0..18
+    double m_reverb_wet = -8.0;               // dB -70..0
+    double m_reverb_dry = -7.0;               // dB -30..0
+    double m_reverb_width = 1.0;              // 0..1
+    double m_reverb_rt60 = 2.8;               // room size, seconds 0.5..30
+    double m_reverb_damp = 8000.0;            // damping, Hz 1000..18000
+    double m_reverb_bass = 0.2;               // bass boost, 1.0 = 100 %
+    double m_reverb_predelay = 0.01;          // seconds 0..0.1
+    double m_reverb_er = 0.3;                 // early reflection level 0..1
     double m_output_gain = 0.0;               // dB -15..+15
 
     wchar_t m_ir_path[MAX_PATH] = {};

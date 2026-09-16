@@ -40,6 +40,9 @@ private:
     void UpdateLimiter();
     void ApplyEqualizer();
     void ApplyCompressor();
+    void ApplyReverb();
+    // Copies the preset's values into the individual reverb parameters.
+    void LoadReverbPresetDefaults();
     bool LoadImpulseResponse(const std::wstring& path);
     bool LoadDdcProfile(const std::wstring& path);
     bool LoadSpectrumProfile(const std::wstring& path);
@@ -80,8 +83,16 @@ private:
     int m_eq_filter_type = 0;      // 0 = FIR minimum phase, 1..5 = IIR 4/6/8/10/12 order
     int m_eq_interpolation = 0;    // 0 = pchip, 1 = makima
 
-    // Reverb preset index (0..18).
+    // Reverb preset index (0..18) plus the individual parameters the preset fills in.
     int m_reverb_preset = 0;
+    double m_reverb_wet = -8.0;      // dB, -70..0
+    double m_reverb_dry = -7.0;      // dB, -30..0
+    double m_reverb_width = 1.0;     // 0..1
+    double m_reverb_rt60 = 2.8;      // seconds, 0.5..30
+    double m_reverb_damp = 8000.0;   // damping low pass Hz, 1000..18000
+    double m_reverb_bass = 0.2;      // bass boost, 1.0 = 100 %
+    double m_reverb_predelay = 0.01; // seconds, 0..0.1
+    double m_reverb_er = 0.3;        // early reflection level, 0..1
 
     // Bass boost max gain in dB (0..15).
     double m_bass_boost = 6.0;

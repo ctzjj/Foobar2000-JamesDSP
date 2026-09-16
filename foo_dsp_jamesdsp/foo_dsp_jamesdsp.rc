@@ -180,24 +180,51 @@ BEGIN
 
     GROUPBOX         "Bass Boost",           IDL_FX_BASS_GRP,       10, 64, 220, 50
     AUTOCHECKBOX     "Enable",               IDC_CHK_BASS_EFFECT,   20, 76, 100, 10
-    LTEXT            "Boost (dB):",          IDL_FX_BASS_BOOST,     20, 92, 50, 10
-    CONTROL          "",                     IDC_SLIDER_BASS_BOOST, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 74, 90, 90, 14
+    LTEXT            "Max gain (dB):",       IDL_FX_BASS_BOOST,     20, 92, 60, 10
+    CONTROL          "",                     IDC_SLIDER_BASS_BOOST, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 84, 90, 80, 14
     LTEXT            "6.0",                  IDC_STATIC_BASS_BOOST, 168, 92, 55, 10
 
-    GROUPBOX         "Reverb",               IDL_FX_REVERB_GRP,     240, 64, 220, 50
-    AUTOCHECKBOX     "Enable",               IDC_CHK_REVERB_EFFECT, 250, 76, 100, 10
-    LTEXT            "Preset:",              IDL_FX_REVERB_PRESET,  250, 92, 40, 10
-    COMBOBOX         IDC_COMBO_REVERB_PRESET,                      292, 90, 160, 200, CBS_DROPDOWNLIST | WS_VSCROLL
+    GROUPBOX         "Output",               IDL_FX_OUTPUT_GRP,     240, 64, 220, 50
+    LTEXT            "Output gain (dB):",    IDL_FX_OUTPUT_GAIN,    250, 82, 70, 10
+    CONTROL          "",                     IDC_SLIDER_OUTPUT_GAIN, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 322, 80, 80, 14
+    LTEXT            "0.0",                  IDC_STATIC_OUTPUT_GAIN, 404, 82, 50, 10
 
     GROUPBOX         "BS2B Crossfeed",       IDL_FX_BS2B_GRP,       10, 120, 220, 50
     AUTOCHECKBOX     "Enable",               IDC_CHK_BS2B_EFFECT,   20, 132, 100, 10
     LTEXT            "Mode:",                IDL_FX_BS2B_MODE,      20, 148, 40, 10
     COMBOBOX         IDC_COMBO_BS2B_MODE,                          62, 146, 160, 120, CBS_DROPDOWNLIST | WS_VSCROLL
 
-    GROUPBOX         "Output",               IDL_FX_OUTPUT_GRP,     240, 120, 220, 50
-    LTEXT            "Output gain (dB):",    IDL_FX_OUTPUT_GAIN,    250, 138, 70, 10
-    CONTROL          "",                     IDC_SLIDER_OUTPUT_GAIN, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 322, 136, 80, 14
-    LTEXT            "0.0",                  IDC_STATIC_OUTPUT_GAIN, 404, 138, 50, 10
+    GROUPBOX         "Reverb",               IDL_FX_REVERB_GRP,     10, 176, 450, 128
+    AUTOCHECKBOX     "Enable",               IDC_CHK_REVERB_EFFECT, 20, 188, 80, 10
+    LTEXT            "Preset:",              IDL_FX_REVERB_PRESET,  108, 188, 30, 10
+    COMBOBOX         IDC_COMBO_REVERB_PRESET,                     140, 186, 150, 200, CBS_DROPDOWNLIST | WS_VSCROLL
+    LTEXT            "",                     IDL_FX_REVERB_HINT,    298, 186, 156, 20
+
+    LTEXT            "Wet (dB):",            IDL_FX_REVERB_WET,     20, 204, 62, 10
+    CONTROL          "",                     IDC_SLIDER_REVERB_WET, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 84, 202, 110, 14
+    LTEXT            "-8.0",                 IDC_STATIC_REVERB_WET, 196, 204, 44, 10
+    LTEXT            "Dry (dB):",            IDL_FX_REVERB_DRY,     20, 226, 62, 10
+    CONTROL          "",                     IDC_SLIDER_REVERB_DRY, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 84, 224, 110, 14
+    LTEXT            "-7.0",                 IDC_STATIC_REVERB_DRY, 196, 226, 44, 10
+    LTEXT            "Width (%):",           IDL_FX_REVERB_WIDTH,   20, 248, 62, 10
+    CONTROL          "",                     IDC_SLIDER_REVERB_WIDTH, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 84, 246, 110, 14
+    LTEXT            "100",                  IDC_STATIC_REVERB_WIDTH, 196, 248, 44, 10
+    LTEXT            "Room size (s):",       IDL_FX_REVERB_RT60,    20, 270, 62, 10
+    CONTROL          "",                     IDC_SLIDER_REVERB_RT60, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 84, 268, 110, 14
+    LTEXT            "2.8",                  IDC_STATIC_REVERB_RT60, 196, 270, 44, 10
+
+    LTEXT            "Damping (Hz):",        IDL_FX_REVERB_DAMP,    235, 204, 62, 10
+    CONTROL          "",                     IDC_SLIDER_REVERB_DAMP, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 299, 202, 110, 14
+    LTEXT            "8000",                 IDC_STATIC_REVERB_DAMP, 411, 204, 44, 10
+    LTEXT            "Bass boost (%):",      IDL_FX_REVERB_BASS,    235, 226, 62, 10
+    CONTROL          "",                     IDC_SLIDER_REVERB_BASS, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 299, 224, 110, 14
+    LTEXT            "20",                   IDC_STATIC_REVERB_BASS, 411, 226, 44, 10
+    LTEXT            "Predelay (ms):",       IDL_FX_REVERB_PREDELAY, 235, 248, 62, 10
+    CONTROL          "",                     IDC_SLIDER_REVERB_PREDELAY, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 299, 246, 110, 14
+    LTEXT            "10",                   IDC_STATIC_REVERB_PREDELAY, 411, 248, 44, 10
+    LTEXT            "Early refl. (%):",     IDL_FX_REVERB_ER,      235, 270, 62, 10
+    CONTROL          "",                     IDC_SLIDER_REVERB_ER, "msctls_trackbar32", TBS_NOTICKS | TBS_HORZ, 299, 268, 110, 14
+    LTEXT            "30",                   IDC_STATIC_REVERB_ER, 411, 270, 44, 10
 END
 
 IDD_TAB_CONVOLVER DIALOGEX 0, 0, 470, 310

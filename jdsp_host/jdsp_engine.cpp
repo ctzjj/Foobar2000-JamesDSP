@@ -1,4 +1,5 @@
 #include "jdsp_engine.h"
+#include "jdsp_reverb_presets.h"
 #include "wav_loader.h"
 #include <windows.h>
 #include <cstring>
@@ -10,6 +11,14 @@
 extern "C" {
 #include "jdsp_header.h"
 }
+
+// Declared in Effects/reverb.c but not exported through jdsp_header.h. It is the
+// only way to reach the individual reverb parameters, because Reverb_SetParam()
+// merely calls it with a preset's fixed values.
+extern "C" void sf_advancereverb(sf_reverb_state_st *rv, int rate, int oversamplefactor,
+    float ertolate, float erefwet, float dry, float ereffactor, float erefwidth, float width,
+    float wet, float wander, float bassb, float spin, float inputlpf, float basslpf,
+    float damplpf, float outputlpf, float rt60, float delay);
 
 // stdout is the IPC pipe, so nothing may be written there outside the frame
 // protocol. All diagnostics go to the log file instead.
@@ -112,7 +121,8 @@ bool JdspEngine::Initialize(uint32_t sample_rate, uint32_t channels) {
     UpdateLimiter();
     BassBoostSetParam(jdsp, (float)m_bass_boost);
     StereoEnhancementSetParam(jdsp, (float)(m_stereo_width / 100.0));
-    Reverb_SetParam(jdsp, m_reverb_preset);
+    LoadReverbPresetDefaults();
+    ApplyReverb();
     CrossfeedChangeMode(jdsp, m_bs2b_mode);
     JamesDSPSetPostGain(jdsp, m_output_gain);
 
@@ -153,6 +163,34 @@ void JdspEngine::ApplyCompressor() {
     JamesDSPLib* jdsp = JDSP(m_jdsp);
     CompressorSetParam(jdsp, (float)m_comp_time, m_comp_granularity, m_comp_tfresolution, 1);
     CompressorSetGain(jdsp, m_comp_band_freq, m_comp_band_gain, 1);
+}
+
+// The preset supplies the parameters that have no user-facing control (early
+// reflection shape, modulation, low pass corners); the rest come from the
+// individual reverb parameters so they can be tweaked after picking a preset.
+void JdspEngine::ApplyReverb() {
+    if (!m_jdsp) return;
+    JamesDSPLib* jdsp = JDSP(m_jdsp);
+    const JdspReverbParams& p =
+        kJdspReverbPresets[clamp_int(m_reverb_preset, 0, JDSP_REVERB_PRESET_COUNT - 1)];
+    sf_advancereverb(&jdsp->reverb, (int)jdsp->fs, p.osf,
+                     (float)m_reverb_er, p.erefwet, (float)m_reverb_dry, p.ereffactor, p.erefwidth,
+                     (float)m_reverb_width, (float)m_reverb_wet, p.wander, (float)m_reverb_bass,
+                     p.spin, p.inputlpf, p.basslpf, (float)m_reverb_damp, p.outputlpf,
+                     (float)m_reverb_rt60, (float)m_reverb_predelay);
+}
+
+void JdspEngine::LoadReverbPresetDefaults() {
+    const JdspReverbParams& p =
+        kJdspReverbPresets[clamp_int(m_reverb_preset, 0, JDSP_REVERB_PRESET_COUNT - 1)];
+    m_reverb_wet = p.wet;
+    m_reverb_dry = p.dry;
+    m_reverb_width = p.width;
+    m_reverb_rt60 = p.rt60;
+    m_reverb_damp = p.damplpf;
+    m_reverb_bass = p.bassb;
+    m_reverb_predelay = p.delay;
+    m_reverb_er = p.ertolate;
 }
 
 bool JdspEngine::LoadImpulseResponse(const std::wstring& path) {
@@ -440,8 +478,42 @@ void JdspEngine::SetParam(const std::string& key, const std::string& value) {
 
     // ---- reverb ----
     else if (key == "reverb.preset") {
-        m_reverb_preset = clamp_int(iv, 0, 18);
-        Reverb_SetParam(jdsp, m_reverb_preset);
+        m_reverb_preset = clamp_int(iv, 0, JDSP_REVERB_PRESET_COUNT - 1);
+        // Picking a preset resets the individual parameters to that preset.
+        LoadReverbPresetDefaults();
+        ApplyReverb();
+    }
+    else if (key == "reverb.wet") {
+        m_reverb_wet = clamp_double(dv, -70.0, 0.0);
+        ApplyReverb();
+    }
+    else if (key == "reverb.dry") {
+        m_reverb_dry = clamp_double(dv, -30.0, 0.0);
+        ApplyReverb();
+    }
+    else if (key == "reverb.width") {
+        m_reverb_width = clamp_double(dv, 0.0, 1.0);
+        ApplyReverb();
+    }
+    else if (key == "reverb.rt60") {
+        m_reverb_rt60 = clamp_double(dv, 0.5, 30.0);
+        ApplyReverb();
+    }
+    else if (key == "reverb.damping") {
+        m_reverb_damp = clamp_double(dv, 1000.0, 18000.0);
+        ApplyReverb();
+    }
+    else if (key == "reverb.bassboost") {
+        m_reverb_bass = clamp_double(dv, 0.0, 2.0);
+        ApplyReverb();
+    }
+    else if (key == "reverb.predelay") {
+        m_reverb_predelay = clamp_double(dv, 0.0, 0.1);
+        ApplyReverb();
+    }
+    else if (key == "reverb.er") {
+        m_reverb_er = clamp_double(dv, 0.0, 1.0);
+        ApplyReverb();
     }
 
     // ---- bass boost ----

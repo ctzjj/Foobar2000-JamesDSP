@@ -3,6 +3,7 @@
 #include "jdsp_config_serializer.h"
 #include "resource.h"
 #include "jdsp_live_link.h"
+#include "jdsp_reverb_presets.h"
 #include <cstdio>
 #include <map>
 
@@ -160,6 +161,14 @@ static const UiLabelDef kUiLabels[] = {
     { IDL_FX_REVERB_GRP,     L"Reverb",         L"\x6df7\x54cd" },
     { IDC_CHK_REVERB_EFFECT, L"Enable",         L"\x542f\x7528" },
     { IDL_FX_REVERB_PRESET,  L"Preset:",        L"\x9884\x8bbe:" },
+    { IDL_FX_REVERB_WET,     L"Wet (dB):",      L"\x6e7f\x58f0 (dB):" },
+    { IDL_FX_REVERB_DRY,     L"Dry (dB):",      L"\x5e72\x58f0 (dB):" },
+    { IDL_FX_REVERB_WIDTH,   L"Width (%):",     L"\x5bbd\x5ea6 (%):" },
+    { IDL_FX_REVERB_RT60,    L"Room size (s):", L"\x6df7\x54cd\x65f6\x95f4 (\x79d2):" },
+    { IDL_FX_REVERB_DAMP,    L"Damping (Hz):",  L"\x963b\x5c3c (Hz):" },
+    { IDL_FX_REVERB_BASS,    L"Bass boost (%):", L"\x4f4e\x97f3\x63d0\x5347 (%):" },
+    { IDL_FX_REVERB_PREDELAY, L"Predelay (ms):", L"\x9884\x5ef6\x65f6 (ms):" },
+    { IDL_FX_REVERB_ER,      L"Early refl. (%):", L"\x65e9\x671f\x53cd\x5c04 (%):" },
     { IDL_FX_BS2B_GRP,       L"BS2B Crossfeed", L"BS2B \x8de8\x9988" },
     { IDC_CHK_BS2B_EFFECT,   L"Enable",         L"\x542f\x7528" },
     { IDL_FX_BS2B_MODE,      L"Mode:",          L"\x6a21\x5f0f:" },
@@ -204,6 +213,10 @@ void JdspConfigDialog::ApplyLanguage() {
     }
     if (m_tab_dialogs[4]) SetDlgItemTextW(m_tab_dialogs[4], IDL_CV_HINT, hint);
     if (m_tab_dialogs[5]) SetDlgItemTextW(m_tab_dialogs[5], IDL_SP_FORMAT, fmt_hint);
+    const wchar_t* rev_hint = (m_current_lang == 1)
+        ? L"\x9009\x62e9\x9884\x8bbe\x4f1a\x91cd\x7f6e\x4e0b\x65b9\x53c2\x6570"
+        : L"Choosing a preset resets the sliders below.";
+    if (m_tab_dialogs[3]) SetDlgItemTextW(m_tab_dialogs[3], IDL_FX_REVERB_HINT, rev_hint);
 }
 
 JdspConfigDialog::JdspConfigDialog(JdspIpcClient& ipc) : m_ipc(ipc) {
@@ -424,6 +437,19 @@ void JdspConfigDialog::OnCommand(HWND hwnd, WPARAM wParam, LPARAM lParam) {
             if (freq_e) { swprintf_s(buf, L"%.0f", b.frequency); SetWindowTextW(freq_e, buf); }
             if (gain_e) { swprintf_s(buf, L"%.1f", b.gain); SetWindowTextW(gain_e, buf); }
         }
+    } else if (id == IDC_COMBO_REVERB_PRESET && code == CBN_SELCHANGE) {
+        // Picking a preset resets the detail sliders to that preset's values.
+        ApplyEffectsTab(hwnd);
+        const JdspReverbParams& p = kJdspReverbPresets[m_reverb_preset];
+        m_reverb_wet = p.wet;
+        m_reverb_dry = p.dry;
+        m_reverb_width = p.width;
+        m_reverb_rt60 = p.rt60;
+        m_reverb_damp = p.damplpf;
+        m_reverb_bass = p.bassb;
+        m_reverb_predelay = p.delay;
+        m_reverb_er = p.ertolate;
+        InitEffectsTab(hwnd);
     } else if (id == IDC_BTN_SAVE_CONFIG && code == BN_CLICKED) {
         SyncFromControls(hwnd);
         wchar_t path[MAX_PATH] = {};
@@ -638,6 +664,14 @@ void JdspConfigDialog::OnHScroll(HWND hwnd, WPARAM wParam, LPARAM lParam) {
     else if (id == IDC_SLIDER_BASS_BOOST) UpdateSliderLabel(tab, id, IDC_STATIC_BASS_BOOST, L"%.1f dB", pos / 10.0f);
     else if (id == IDC_SLIDER_STEREO_WIDTH) UpdateSliderLabel(tab, id, IDC_STATIC_STEREO_WIDTH, L"%.0f%%", (float)pos);
     else if (id == IDC_SLIDER_OUTPUT_GAIN) UpdateSliderLabel(tab, id, IDC_STATIC_OUTPUT_GAIN, L"%.1f dB", pos / 10.0f);
+    else if (id == IDC_SLIDER_REVERB_WET) UpdateSliderLabel(tab, id, IDC_STATIC_REVERB_WET, L"%.1f dB", pos / 10.0f);
+    else if (id == IDC_SLIDER_REVERB_DRY) UpdateSliderLabel(tab, id, IDC_STATIC_REVERB_DRY, L"%.1f dB", pos / 10.0f);
+    else if (id == IDC_SLIDER_REVERB_WIDTH) UpdateSliderLabel(tab, id, IDC_STATIC_REVERB_WIDTH, L"%.0f%%", (float)pos);
+    else if (id == IDC_SLIDER_REVERB_RT60) UpdateSliderLabel(tab, id, IDC_STATIC_REVERB_RT60, L"%.1f s", pos / 10.0f);
+    else if (id == IDC_SLIDER_REVERB_DAMP) UpdateSliderLabel(tab, id, IDC_STATIC_REVERB_DAMP, L"%.0f Hz", (float)pos);
+    else if (id == IDC_SLIDER_REVERB_BASS) UpdateSliderLabel(tab, id, IDC_STATIC_REVERB_BASS, L"%.0f%%", (float)pos);
+    else if (id == IDC_SLIDER_REVERB_PREDELAY) UpdateSliderLabel(tab, id, IDC_STATIC_REVERB_PREDELAY, L"%.0f ms", (float)pos);
+    else if (id == IDC_SLIDER_REVERB_ER) UpdateSliderLabel(tab, id, IDC_STATIC_REVERB_ER, L"%.0f%%", (float)pos);
     else if (id >= IDC_SLIDER_COMP_BAND0 && id < IDC_SLIDER_COMP_BAND0 + JDSP_COMP_BANDS) {
         UpdateCompBandLabel(tab, id - IDC_SLIDER_COMP_BAND0);
     }
@@ -822,6 +856,14 @@ std::string JdspConfigDialog::SerializeSettings() const {
     sprintf_s(buf, "%.3f", m_bass_boost);    kv("bassboost.gain", buf);
     sprintf_s(buf, "%.3f", m_stereo_width);  kv("stereo.width", buf);
     sprintf_s(buf, "%d", m_reverb_preset);   kv("reverb.preset", buf);
+    sprintf_s(buf, "%.3f", m_reverb_wet);      kv("reverb.wet", buf);
+    sprintf_s(buf, "%.3f", m_reverb_dry);      kv("reverb.dry", buf);
+    sprintf_s(buf, "%.4f", m_reverb_width);    kv("reverb.width", buf);
+    sprintf_s(buf, "%.3f", m_reverb_rt60);     kv("reverb.rt60", buf);
+    sprintf_s(buf, "%.1f", m_reverb_damp);     kv("reverb.damping", buf);
+    sprintf_s(buf, "%.4f", m_reverb_bass);     kv("reverb.bassboost", buf);
+    sprintf_s(buf, "%.4f", m_reverb_predelay); kv("reverb.predelay", buf);
+    sprintf_s(buf, "%.4f", m_reverb_er);       kv("reverb.er", buf);
     sprintf_s(buf, "%.3f", m_output_gain);   kv("output.gain", buf);
     sprintf_s(buf, "%d", m_current_lang);    kv("ui.language", buf);
 
@@ -892,6 +934,14 @@ void JdspConfigDialog::DeserializeSettings(const std::string& blob) {
         else if (k == "bassboost.gain")          m_bass_boost = atof(v.c_str());
         else if (k == "stereo.width")            m_stereo_width = atof(v.c_str());
         else if (k == "reverb.preset")           { m_reverb_preset = atoi(v.c_str()); if (m_reverb_preset < 0 || m_reverb_preset > 18) m_reverb_preset = 0; }
+    else if (k == "reverb.wet")              m_reverb_wet = atof(v.c_str());
+    else if (k == "reverb.dry")              m_reverb_dry = atof(v.c_str());
+    else if (k == "reverb.width")            m_reverb_width = atof(v.c_str());
+    else if (k == "reverb.rt60")             m_reverb_rt60 = atof(v.c_str());
+    else if (k == "reverb.damping")          m_reverb_damp = atof(v.c_str());
+    else if (k == "reverb.bassboost")        m_reverb_bass = atof(v.c_str());
+    else if (k == "reverb.predelay")         m_reverb_predelay = atof(v.c_str());
+    else if (k == "reverb.er")               m_reverb_er = atof(v.c_str());
         else if (k == "output.gain")             m_output_gain = atof(v.c_str());
         else if (k == "ui.language") {
             m_current_lang = atoi(v.c_str());
@@ -1209,6 +1259,23 @@ void JdspConfigDialog::InitEffectsTab(HWND hwnd) {
         SendMessageW(rev, CB_SETCURSEL, m_reverb_preset, 0);
     }
 
+    set_slider(IDC_SLIDER_REVERB_WET, -700, 0, (int)(m_reverb_wet * 10.0));
+    UpdateSliderLabel(tab, IDC_SLIDER_REVERB_WET, IDC_STATIC_REVERB_WET, L"%.1f dB", (float)m_reverb_wet);
+    set_slider(IDC_SLIDER_REVERB_DRY, -300, 0, (int)(m_reverb_dry * 10.0));
+    UpdateSliderLabel(tab, IDC_SLIDER_REVERB_DRY, IDC_STATIC_REVERB_DRY, L"%.1f dB", (float)m_reverb_dry);
+    set_slider(IDC_SLIDER_REVERB_WIDTH, 0, 100, (int)(m_reverb_width * 100.0));
+    UpdateSliderLabel(tab, IDC_SLIDER_REVERB_WIDTH, IDC_STATIC_REVERB_WIDTH, L"%.0f%%", (float)(m_reverb_width * 100.0));
+    set_slider(IDC_SLIDER_REVERB_RT60, 5, 300, (int)(m_reverb_rt60 * 10.0));
+    UpdateSliderLabel(tab, IDC_SLIDER_REVERB_RT60, IDC_STATIC_REVERB_RT60, L"%.1f s", (float)m_reverb_rt60);
+    set_slider(IDC_SLIDER_REVERB_DAMP, 1000, 18000, (int)m_reverb_damp);
+    UpdateSliderLabel(tab, IDC_SLIDER_REVERB_DAMP, IDC_STATIC_REVERB_DAMP, L"%.0f Hz", (float)m_reverb_damp);
+    set_slider(IDC_SLIDER_REVERB_BASS, 0, 200, (int)(m_reverb_bass * 100.0));
+    UpdateSliderLabel(tab, IDC_SLIDER_REVERB_BASS, IDC_STATIC_REVERB_BASS, L"%.0f%%", (float)(m_reverb_bass * 100.0));
+    set_slider(IDC_SLIDER_REVERB_PREDELAY, 0, 100, (int)(m_reverb_predelay * 1000.0));
+    UpdateSliderLabel(tab, IDC_SLIDER_REVERB_PREDELAY, IDC_STATIC_REVERB_PREDELAY, L"%.0f ms", (float)(m_reverb_predelay * 1000.0));
+    set_slider(IDC_SLIDER_REVERB_ER, 0, 100, (int)(m_reverb_er * 100.0));
+    UpdateSliderLabel(tab, IDC_SLIDER_REVERB_ER, IDC_STATIC_REVERB_ER, L"%.0f%%", (float)(m_reverb_er * 100.0));
+
     set_chk(IDC_CHK_BS2B_EFFECT, kDlgModBs2b);
     HWND xf = GetDlgItem(tab, IDC_COMBO_BS2B_MODE);
     if (xf) {
@@ -1240,6 +1307,14 @@ void JdspConfigDialog::ApplyEffectsTab(HWND hwnd) {
         int s = (int)SendMessageW(rev, CB_GETCURSEL, 0, 0);
         if (s >= 0 && s <= 18) m_reverb_preset = s;
     }
+    m_reverb_wet = get_pos(IDC_SLIDER_REVERB_WET) / 10.0;
+    m_reverb_dry = get_pos(IDC_SLIDER_REVERB_DRY) / 10.0;
+    m_reverb_width = get_pos(IDC_SLIDER_REVERB_WIDTH) / 100.0;
+    m_reverb_rt60 = get_pos(IDC_SLIDER_REVERB_RT60) / 10.0;
+    m_reverb_damp = get_pos(IDC_SLIDER_REVERB_DAMP);
+    m_reverb_bass = get_pos(IDC_SLIDER_REVERB_BASS) / 100.0;
+    m_reverb_predelay = get_pos(IDC_SLIDER_REVERB_PREDELAY) / 1000.0;
+    m_reverb_er = get_pos(IDC_SLIDER_REVERB_ER) / 100.0;
     HWND xf = GetDlgItem(tab, IDC_COMBO_BS2B_MODE);
     if (xf) {
         int s = (int)SendMessageW(xf, CB_GETCURSEL, 0, 0);
