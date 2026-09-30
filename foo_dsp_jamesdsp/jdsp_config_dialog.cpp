@@ -1329,7 +1329,7 @@ void JdspConfigDialog::InitDynamicsTab(HWND hwnd) {
     chk = GetDlgItem(tab, IDC_CHK_LIM);
     if (chk) Button_SetCheck(chk, m_modules[kDlgModLimiter] ? BST_CHECKED : BST_UNCHECKED);
     set_slider(IDC_SLIDER_LIM_THRESH, -600, -1, (int)(m_lim_threshold * 10.0));
-    set_slider(IDC_SLIDER_LIM_RELEASE, 1, 5000, (int)m_lim_release);
+    set_slider(IDC_SLIDER_LIM_RELEASE, 2, 5000, (int)m_lim_release);
     UpdateSliderLabel(tab, IDC_SLIDER_LIM_THRESH, IDC_STATIC_LIM_THRESH, L"%.1f dB", (float)m_lim_threshold);
     UpdateSliderLabel(tab, IDC_SLIDER_LIM_RELEASE, IDC_STATIC_LIM_RELEASE, L"%.0f ms", (float)m_lim_release);
 
