@@ -63,33 +63,136 @@ bool jdsp_dsp::EnsureHostRunning() {
     return true;
 }
 
-bool jdsp_dsp::on_chunk(audio_chunk* p_chunk, abort_callback&) {
-    if (!EnsureHostRunning()) return true;
+// JamesDSP rebuilds its convolver, crossfeed and equaliser state whenever the
+// block size it is fed changes (jdspController.c does a full refresh on every
+// "blockSize != n"), which foobar2000's variable chunk lengths would trigger
+// constantly. The pipeline therefore re-blocks the stream into fixed stereo
+// frames: input is accumulated until a whole block is available, and the
+// output of a block is emitted one block later. The initial out FIFO padding
+// of one silent block keeps the invariant that there is always enough
+// processed audio to cover an incoming chunk, at the cost of one block of
+// latency (about 23 ms at 44.1 kHz).
+void jdsp_dsp::ResetPipeline() {
+    m_in_fifo.clear();
+    m_out_fifo.clear();
+    m_out_fifo.assign((size_t)kBlockFrames * 2, 0.0f);
+}
 
-    audio_sample* data = p_chunk->get_data();
+void jdsp_dsp::ProcessFifo() {
+    std::vector<float> block((size_t)kBlockFrames * 2);
+    std::vector<float> out((size_t)kBlockFrames * 2);
+
+    while (m_in_fifo.size() >= (size_t)kBlockFrames * 2) {
+        std::copy(m_in_fifo.begin(), m_in_fifo.begin() + block.size(), block.begin());
+        m_in_fifo.erase(m_in_fifo.begin(), m_in_fifo.begin() + block.size());
+
+        bool ok = m_ipc_client.SendAudioData(m_fmt_rate, 2, kBlockFrames,
+                                             block.data(), out.data());
+        const float* src = ok ? out.data() : block.data();
+        m_out_fifo.insert(m_out_fifo.end(), src, src + block.size());
+    }
+}
+
+bool jdsp_dsp::on_chunk(audio_chunk* p_chunk, abort_callback&) {
     uint32_t sample_count = (uint32_t)p_chunk->get_sample_count();
     uint32_t channels = (uint32_t)p_chunk->get_channels();
     uint32_t sample_rate = (uint32_t)p_chunk->get_sample_rate();
+    uint32_t channel_config = p_chunk->get_channel_config();
+    if (sample_count == 0) return true;
 
-    uint32_t total = sample_count * channels;
-    std::vector<float> input(total);
-    std::vector<float> output(total);
+    // The engine is stereo only. Mono is upmixed and folded back; anything
+    // with more than two channels bypasses the DSP entirely.
+    if (channels != 1 && channels != 2) return true;
+    if (!EnsureHostRunning()) return true;
 
-    for (uint32_t i = 0; i < total; i++) input[i] = (float)data[i];
-
-    bool ok = m_ipc_client.SendAudioData(sample_rate, channels, sample_count,
-                                         input.data(), output.data());
-    if (ok) {
-        for (uint32_t i = 0; i < total; i++) data[i] = (audio_sample)output[i];
+    if (sample_rate != m_fmt_rate || channels != m_fmt_channels) {
+        m_fmt_rate = sample_rate;
+        m_fmt_channels = channels;
+        m_fmt_config = channel_config;
+        ResetPipeline();
     }
+
+    audio_sample* data = p_chunk->get_data();
+
+    size_t frames = sample_count;
+    m_in_fifo.reserve(m_in_fifo.size() + frames * 2);
+    if (channels == 2) {
+        for (size_t i = 0; i < frames; i++) {
+            float l = (float)data[i * 2], r = (float)data[i * 2 + 1];
+            m_in_fifo.push_back(l);
+            m_in_fifo.push_back(r);
+        }
+    } else {
+        for (size_t i = 0; i < frames; i++) {
+            float m = (float)data[i];
+            m_in_fifo.push_back(m);
+            m_in_fifo.push_back(m);
+        }
+    }
+
+    ProcessFifo();
+
+    size_t out_frames = m_out_fifo.size() / 2;
+    if (out_frames < frames) return true;  // cannot happen while the pad holds
+    size_t take = frames * 2;
+    const float* src = m_out_fifo.data();
+    if (channels == 2) {
+        for (size_t i = 0; i < frames; i++) {
+            float l = src[i * 2], r = src[i * 2 + 1];
+            data[i * 2] = (audio_sample)l;
+            data[i * 2 + 1] = (audio_sample)r;
+        }
+    } else {
+        for (size_t i = 0; i < frames; i++) {
+            float l = src[i * 2], r = src[i * 2 + 1];
+            float m = (l + r) * 0.5f;
+            data[i] = (audio_sample)m;
+        }
+    }
+    m_out_fifo.erase(m_out_fifo.begin(), m_out_fifo.begin() + take);
 
     return true;
 }
 
 void jdsp_dsp::on_endoftrack(abort_callback&) {}
-void jdsp_dsp::on_endofplayback(abort_callback&) {}
-void jdsp_dsp::flush() {}
-double jdsp_dsp::get_latency() { return 0; }
+void jdsp_dsp::on_endofplayback(abort_callback&) {
+    if (!m_fmt_rate) return;
+
+    // Return everything still buffered: pad the input FIFO to a whole block,
+    // process it and hand the whole output FIFO back through insert_chunk.
+    size_t block_samples = (size_t)kBlockFrames * 2;
+    if (m_in_fifo.size() % block_samples) {
+        size_t pad = block_samples - (m_in_fifo.size() % block_samples);
+        m_in_fifo.resize(m_in_fifo.size() + pad, 0.0f);
+    }
+    ProcessFifo();
+
+    size_t frames = m_out_fifo.size() / 2;
+    if (frames) {
+        audio_chunk* out = insert_chunk(frames * m_fmt_channels);
+        std::vector<audio_sample> buf(frames * m_fmt_channels);
+        const float* src = m_out_fifo.data();
+        if (m_fmt_channels == 2) {
+            for (size_t i = 0; i < frames * 2; i++) buf[i] = (audio_sample)src[i];
+        } else {
+            for (size_t i = 0; i < frames; i++) {
+                buf[i] = (audio_sample)((src[i * 2] + src[i * 2 + 1]) * 0.5f);
+            }
+        }
+        out->set_data(buf.data(), frames, m_fmt_channels, m_fmt_rate, m_fmt_config);
+    }
+
+    m_fmt_rate = 0;
+    ResetPipeline();
+}
+void jdsp_dsp::flush() {
+    m_fmt_rate = 0;
+    ResetPipeline();
+}
+double jdsp_dsp::get_latency() {
+    if (!m_fmt_rate) return 0;
+    return (double)((m_in_fifo.size() + m_out_fifo.size()) / 2) / (double)m_fmt_rate;
+}
 bool jdsp_dsp::need_track_change_mark() { return false; }
 
 bool jdsp_dsp::g_get_default_preset(dsp_preset& p_out) {

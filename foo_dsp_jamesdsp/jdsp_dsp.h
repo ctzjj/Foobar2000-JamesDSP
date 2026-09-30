@@ -33,9 +33,19 @@ public:
 private:
     bool EnsureHostRunning();
     void ApplyPresetToHost();
+    void ResetPipeline();
+    void ProcessFifo();
+
+    static const uint32_t kBlockFrames = 1024;
 
     JdspHostManager m_host_manager;
     JdspIpcClient m_ipc_client;
     bool m_host_started = false;
     dsp_preset_impl m_preset;
+
+    std::vector<float> m_in_fifo;
+    std::vector<float> m_out_fifo;
+    uint32_t m_fmt_rate = 0;
+    uint32_t m_fmt_channels = 0;
+    uint32_t m_fmt_config = 0;
 };
