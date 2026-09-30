@@ -129,7 +129,7 @@ bool JdspIpcServer::HandleAudioData(const std::vector<uint8_t>& payload, std::ve
     float* resp_audio = reinterpret_cast<float*>(response.data() + sizeof(jdsp::AudioData));
     memcpy(resp_audio, audio, total_samples * sizeof(float));
 
-    m_engine.Process(resp_audio, hdr->sample_count, hdr->channels);
+    m_engine.Process(resp_audio, hdr->sample_rate, hdr->sample_count, hdr->channels);
 
     return true;
 }

@@ -32,9 +32,10 @@ public:
 
     bool Initialize(uint32_t sample_rate, uint32_t channels);
     void Shutdown();
-    bool Process(float* audio, uint32_t sample_count, uint32_t channels);
+    bool Process(float* audio, uint32_t sample_rate, uint32_t sample_count, uint32_t channels);
     void SetParam(const std::string& key, const std::string& value);
     bool AnyModuleEnabled() const;
+    uint32_t sample_rate() const { return m_sample_rate; }
 
 private:
     void UpdateLimiter();
@@ -43,6 +44,7 @@ private:
     void ApplyReverb();
     void ApplyReverbScalars();
     void ApplyCrossfeed();
+    void ReapplyAfterRateChange();
     void LoadBs2bModeDefaults();
     // Copies the preset's values into the individual reverb parameters.
     void LoadReverbPresetDefaults();
@@ -55,7 +57,7 @@ private:
     bool m_initialized = false;
     uint32_t m_sample_rate = 44100;
     uint32_t m_channels = 2;
-    size_t m_block_size = 4096;
+    size_t m_block_size = 1024;
 
     bool m_module_enabled[kModCount] = {};
 

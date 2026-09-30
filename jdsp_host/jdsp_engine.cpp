@@ -329,7 +329,19 @@ bool JdspEngine::LoadImpulseResponse(const std::wstring& path) {
     (void)sample_rate;
 
     size_t frames = samples.size() / channels;
-    int r = Convolver1DLoadImpulseResponse(jdsp, samples.data(), channels, frames, 1);
+    float* ir = samples.data();
+    uint32_t ir_channels = channels;
+    if (channels > 2) {
+        std::vector<float> stereo(frames * 2);
+        for (size_t i = 0; i < frames; i++) {
+            stereo[i * 2] = samples[i * channels];
+            stereo[i * 2 + 1] = samples[i * channels + 1];
+        }
+        samples.swap(stereo);
+        ir = samples.data();
+        ir_channels = 2;
+    }
+    int r = Convolver1DLoadImpulseResponse(jdsp, ir, ir_channels, frames, 1);
     if (!r) {
         EngineLog("LoadImpulseResponse: Convolver1DLoadImpulseResponse failed");
         return false;
@@ -437,9 +449,20 @@ void JdspEngine::Shutdown() {
     m_initialized = false;
 }
 
-bool JdspEngine::Process(float* audio, uint32_t sample_count, uint32_t channels) {
+bool JdspEngine::Process(float* audio, uint32_t sample_rate, uint32_t sample_count, uint32_t channels) {
     if (!m_initialized || !m_jdsp) return false;
-    if (sample_count == 0 || channels == 0) return false;
+    if (sample_count == 0 || channels != 2) return false;
+
+    if (m_sample_rate != sample_rate) {
+        m_sample_rate = sample_rate;
+        JamesDSPLib* jdsp = JDSP(m_jdsp);
+        // JamesDSPSetSampleRate resamples the bundled HRTF blobs to the new
+        // fs and switches to ASRC for rates outside 44.1/48 kHz. It wipes the
+        // crossfeed slots (restoring library preset clevels), so everything
+        // that bakes fs into its coefficients must be re-applied afterwards.
+        JamesDSPSetSampleRate(jdsp, (float)sample_rate, 0);
+        ReapplyAfterRateChange();
+    }
 
     JamesDSPLib* jdsp = JDSP(m_jdsp);
     size_t n = sample_count;
@@ -449,6 +472,28 @@ bool JdspEngine::Process(float* audio, uint32_t sample_count, uint32_t channels)
     }
 
     return true;
+}
+
+void JdspEngine::ReapplyAfterRateChange() {
+    if (!m_jdsp) return;
+    JamesDSPLib* jdsp = JDSP(m_jdsp);
+    BassBoostSetParam(jdsp, (float)m_bass_boost);
+    StereoEnhancementSetParam(jdsp, (float)(m_stereo_width / 100.0));
+    UpdateLimiter();
+    ApplyCompressor();
+    ApplyEqualizer();
+    ApplyReverb();
+    ApplyReverbScalars();
+    ApplyCrossfeed();
+
+    // DDC coefficients and the arbitrary response EQ are digitised at the
+    // engine sample rate, so a rate change invalidates the loaded files.
+    std::wstring ddc = m_ddc_path_last;
+    m_ddc_path_last.clear();
+    if (!ddc.empty()) LoadDdcProfile(ddc);
+    std::wstring spectrum = m_spectrum_path_last;
+    m_spectrum_path_last.clear();
+    if (!spectrum.empty()) LoadSpectrumProfile(spectrum);
 }
 
 void JdspEngine::SetParam(const std::string& key, const std::string& value) {
