@@ -577,7 +577,11 @@ void JdspConfigDialog::OnCommand(HWND hwnd, WPARAM wParam, LPARAM lParam) {
         m_eq_widget.Refresh();
         HWND tab = m_tab_dialogs[1];
         if (tab) {
-            for (int i = 0; i < JDSP_EQ_BANDS; i++) UpdateEqBandLabel(tab, i);
+            for (int i = 0; i < JDSP_EQ_BANDS; i++) {
+                UpdateEqBandLabel(tab, i);
+                HWND sl = GetDlgItem(tab, IDC_SLIDER_EQ_BAND0 + i);
+                if (sl) SendMessageW(sl, TBM_SETPOS, TRUE, 0);
+            }
             int sel = m_eq_widget.GetSelectedBand();
             if (sel < 0 || sel >= JDSP_EQ_BANDS) sel = 0;
             const EqBand& b = m_eq_bands[sel];
@@ -679,6 +683,10 @@ void JdspConfigDialog::OnNotify(HWND hwnd, WPARAM wParam, LPARAM lParam) {
         if (tab) {
             int sel = m_eq_widget.GetSelectedBand();
             for (int i = 0; i < JDSP_EQ_BANDS; i++) UpdateEqBandLabel(tab, i);
+            for (int i = 0; i < JDSP_EQ_BANDS; i++) {
+                HWND sl = GetDlgItem(tab, IDC_SLIDER_EQ_BAND0 + i);
+                if (sl) SendMessageW(sl, TBM_SETPOS, TRUE, (LPARAM)(int)(-m_eq_bands[i].gain * 10.0f));
+            }
             HWND combo = GetDlgItem(tab, IDC_COMBO_EQ_BAND);
             if (combo) SendMessageW(combo, CB_SETCURSEL, sel, 0);
             if (sel >= 0 && sel < JDSP_EQ_BANDS) {
@@ -1000,8 +1008,8 @@ void JdspConfigDialog::DeserializeSettings(const std::string& blob) {
         }
         if (handled) continue;
 
-        if (k.compare(0, 8, "eq.band") == 0) {
-            int band = atoi(k.c_str() + 8);
+        if (k.compare(0, 7, "eq.band") == 0) {
+            int band = atoi(k.c_str() + 7);
             if (band >= 0 && band < JDSP_EQ_BANDS) {
                 size_t dot = k.rfind('.');
                 std::string p = (dot == std::string::npos) ? std::string() : k.substr(dot + 1);

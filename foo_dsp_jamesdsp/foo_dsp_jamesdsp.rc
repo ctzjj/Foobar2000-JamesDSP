@@ -93,14 +93,14 @@ BEGIN
     LTEXT            "+0.0",  IDC_STATIC_EQ_BANDVAL0 + 14, 430, 164, 34, 8
     CONTROL          "",     IDC_SLIDER_EQ_BAND0 + 14, "msctls_trackbar32", TBS_VERT | TBS_NOTICKS, 436, 176, 18, 68
     LTEXT            "16k",   IDC_STATIC_EQ_BANDFREQ0 + 14, 430, 250, 34, 8
-    LTEXT            "Band:",           IDL_EQ_BAND,        10, 268, 26, 8
-    COMBOBOX         IDC_COMBO_EQ_BAND,                     38, 266, 50, 80, CBS_DROPDOWNLIST | WS_VSCROLL
-    LTEXT            "Freq (Hz):",      IDL_EQ_FREQ,        100, 268, 44, 8
-    EDITTEXT         IDC_EDIT_EQ_FREQ,                      146, 266, 50, 13, ES_AUTOHSCROLL
-    LTEXT            "Gain (dB):",      IDL_EQ_GAIN,        206, 268, 44, 8
-    EDITTEXT         IDC_EDIT_EQ_GAIN,                      252, 266, 50, 13, ES_AUTOHSCROLL
-    PUSHBUTTON       "Reset Flat",      IDC_BTN_EQ_RESET,   320, 265, 60, 14
-    AUTOCHECKBOX     "Enable",          IDC_CHK_EQ_ENABLE,  8, 266, 60, 12
+    LTEXT            "Band:",           IDL_EQ_BAND,        46, 268, 30, 8
+    COMBOBOX         IDC_COMBO_EQ_BAND,                     80, 266, 62, 80, CBS_DROPDOWNLIST | WS_VSCROLL
+    LTEXT            "Freq (Hz):",      IDL_EQ_FREQ,        152, 268, 48, 8
+    EDITTEXT         IDC_EDIT_EQ_FREQ,                      204, 266, 50, 13, ES_AUTOHSCROLL
+    LTEXT            "Gain (dB):",      IDL_EQ_GAIN,        262, 268, 48, 8
+    EDITTEXT         IDC_EDIT_EQ_GAIN,                      316, 266, 50, 13, ES_AUTOHSCROLL
+    PUSHBUTTON       "Reset Flat",      IDC_BTN_EQ_RESET,   368, 265, 76, 14
+    AUTOCHECKBOX     "Enable",          IDC_CHK_EQ_ENABLE,  8, 266, 32, 12
     LTEXT            "Filter type:",    IDL_EQ_FILTERTYPE,  10, 288, 46, 8
     COMBOBOX         IDC_COMBO_EQ_FILTERTYPE,               58, 286, 110, 120, CBS_DROPDOWNLIST | WS_VSCROLL
     LTEXT            "Interpolation:",  IDL_EQ_INTERP,      180, 288, 48, 8
